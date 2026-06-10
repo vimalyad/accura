@@ -7,24 +7,27 @@
       "apiKeyEnv": "ANTHROPIC_API_KEY",
       "vision": true,
       "coordinateGrounded": true,
-      "maxTokens": 8192,
-      "temperature": 0
+      "thinking": "adaptive",
+      "effort": "high",
+      "maxTokens": 8192
     },
     "planner": {
       "provider": "anthropic",
       "model": "claude-opus-4-8",
       "apiKeyEnv": "ANTHROPIC_API_KEY",
       "vision": true,
-      "maxTokens": 8192,
-      "temperature": 0
+      "thinking": "adaptive",
+      "effort": "high",
+      "maxTokens": 8192
     },
     "judge": {
       "provider": "anthropic",
       "model": "claude-opus-4-8",
       "apiKeyEnv": "ANTHROPIC_API_KEY",
       "vision": true,
-      "maxTokens": 8192,
-      "temperature": 0
+      "thinking": "adaptive",
+      "effort": "high",
+      "maxTokens": 8192
     }
   },
   "browser": {

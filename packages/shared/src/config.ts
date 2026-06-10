@@ -14,7 +14,15 @@ export const ModelSpecSchema = z.object({
   /** Name of the environment variable holding the API key. Never the key itself. */
   apiKeyEnv: z.string().min(1).optional(),
   maxTokens: z.number().int().positive().default(4096),
-  temperature: z.number().min(0).max(2).default(0),
+  /**
+   * Omit for models that reject sampling params (Anthropic Opus 4.7+,
+   * or any Anthropic model running with adaptive thinking).
+   */
+  temperature: z.number().min(0).max(2).optional(),
+  /** Anthropic adaptive thinking. Ignored by openai-compatible providers. */
+  thinking: z.enum(['adaptive']).optional(),
+  /** Anthropic effort level. Ignored by openai-compatible providers. */
+  effort: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).optional(),
   vision: z.boolean().default(false),
   coordinateGrounded: z.boolean().default(false),
 });

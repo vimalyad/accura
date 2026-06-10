@@ -19,7 +19,7 @@ describe('parseProfile', () => {
     if (!result.ok) return;
     const profile = result.value;
     expect(profile.roles.executor.maxTokens).toBe(4096);
-    expect(profile.roles.executor.temperature).toBe(0);
+    expect(profile.roles.executor.temperature).toBeUndefined();
     expect(profile.roles.executor.vision).toBe(false);
     expect(profile.browser.headless).toBe(true);
     expect(profile.browser.viewportWidth).toBe(1280);
