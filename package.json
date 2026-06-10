@@ -1,0 +1,21 @@
+{
+  "name": "accura",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Accuracy-first browser agent. TypeScript, Playwright, model-agnostic.",
+  "packageManager": "pnpm@11.5.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "turbo": "^2.9.17",
+    "typescript": "^6.0.3"
+  }
+}
