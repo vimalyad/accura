@@ -1,0 +1,37 @@
+{
+  "name": "final",
+  "roles": {
+    "executor": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "vision": true,
+      "coordinateGrounded": true,
+      "maxTokens": 8192,
+      "temperature": 0
+    },
+    "planner": {
+      "provider": "anthropic",
+      "model": "claude-opus-4-8",
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "vision": true,
+      "maxTokens": 8192,
+      "temperature": 0
+    },
+    "judge": {
+      "provider": "anthropic",
+      "model": "claude-opus-4-8",
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "vision": true,
+      "maxTokens": 8192,
+      "temperature": 0
+    }
+  },
+  "browser": {
+    "headless": true,
+    "viewportWidth": 1280,
+    "viewportHeight": 800,
+    "navigationTimeoutMs": 30000
+  },
+  "maxSteps": 60
+}
