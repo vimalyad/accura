@@ -1,4 +1,4 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
 import { createLogger } from '@accura/shared';
 import type { BrowserSession } from '@accura/browser';
 import { describeObservation, Observer, type AgentObservation } from '@accura/perception';
@@ -17,6 +17,14 @@ import {
   diffObservations,
   TrajectoryJudge,
 } from '@accura/verify';
+import {
+  domainOf,
+  renderSkills,
+  SkillInductor,
+  SkillReplayer,
+  type MemoryStore,
+  type Skill,
+} from '@accura/memory';
 import { buildSystemPrompt, renderHistory, type StepRecord } from './prompts.js';
 import { RecoveryPolicy } from './recovery.js';
 import { TraceWriter } from './trace.js';
@@ -41,6 +49,12 @@ export interface AgentOptions {
   arbiterN?: number;
   /** Pre-flight outcome simulation for irreversible actions. Defaults to plannerModel ?? judgeModel. */
   simulatorModel?: ChatModel;
+  /** Cross-run skill memory: replay verified workflows, induce new ones. */
+  memoryStore?: MemoryStore;
+  /** Model that distills judge-approved successes into reusable skills. */
+  skillInductorModel?: ChatModel;
+  /** Attempt deterministic replay of the best matching skill at run start. */
+  replaySkills?: boolean;
   maxSteps?: number;
   maxActionsPerStep?: number;
   /** done(success=true) rejections tolerated before returning honest failure. */
@@ -146,6 +160,39 @@ export class Agent {
       await this.options.session.navigate(this.options.startUrl);
     }
 
+    // ---- skill memory: surface known workflows, optionally replay the best ----
+    let skillsSection = '';
+    const replayRecords: StepRecord[] = [];
+    if (this.options.memoryStore && this.options.startUrl) {
+      const matchingSkills: Skill[] = await this.options.memoryStore.querySkills(
+        this.options.startUrl,
+      );
+      if (matchingSkills.length > 0) {
+        skillsSection = `# Known workflows for this site (verified on past runs)\n${renderSkills(matchingSkills)}`;
+      }
+      const best = matchingSkills[0];
+      if ((this.options.replaySkills ?? true) && best && best.score >= 0) {
+        const replayer = new SkillReplayer(this.options.registry, this.ctx, this.observer);
+        try {
+          const replay = await replayer.replay(best);
+          await this.options.memoryStore.recordSkillOutcome(best.id, replay.complete);
+          replayRecords.push({
+            step: 0,
+            goal: `Replay known workflow "${best.title}"`,
+            actionsSummary: replay.summary,
+            evaluation: replay.complete ? 'success' : 'uncertain',
+            memory: replay.complete
+              ? 'Known workflow replayed fully; verify the outcome and finish the task.'
+              : 'Known workflow replay stopped early; continue manually from the current page state.',
+          });
+          await trace?.step({ step: 0, replay: replay.summary });
+        } catch (error) {
+          log.warn({ error }, 'skill replay crashed; continuing live');
+        }
+      }
+    }
+    history.push(...replayRecords);
+
     const observedEvidence: string[] = [];
     const observationExcerpts: string[] = [];
     let previousObservation: AgentObservation | undefined;
@@ -232,6 +279,7 @@ export class Agent {
 
       const userText = [
         `# Task\n${task}`,
+        ...(skillsSection ? [skillsSection] : []),
         ...(plan
           ? [
               `# Plan (revision ${plan.revision})\n${renderPlan(plan)}\nReport newly completed item indices in completedPlanItems.`,
@@ -382,6 +430,7 @@ export class Agent {
           doneRejections,
           plan,
           trace,
+          task,
         );
       }
 
@@ -404,6 +453,7 @@ export class Agent {
             doneRejections,
             plan,
             trace,
+            task,
           );
         }
         pendingRejection = reason;
@@ -445,6 +495,7 @@ export class Agent {
               doneRejections,
               plan,
               trace,
+              task,
             );
           }
           pendingRejection = reason;
@@ -459,6 +510,7 @@ export class Agent {
         doneRejections,
         plan,
         trace,
+        task,
       );
     }
 
@@ -472,6 +524,7 @@ export class Agent {
       doneRejections,
       plan,
       trace,
+      task,
     );
   }
 
@@ -513,6 +566,7 @@ export class Agent {
     doneRejections: number,
     plan: Plan | undefined,
     trace: TraceWriter | undefined,
+    task?: string,
   ): Promise<AgentResult> {
     const result: AgentResult = {
       ...core,
@@ -522,6 +576,48 @@ export class Agent {
       ...(trace ? { traceDir: trace.dir } : {}),
     };
     await trace?.result({ ...result, history: undefined });
+    if (task !== undefined && this.options.memoryStore) {
+      await this.recordMemory(task, result, trace);
+    }
     return result;
+  }
+
+  /** Persists the run; induces a skill from judge-approved successes. */
+  private async recordMemory(
+    task: string,
+    result: AgentResult,
+    trace: TraceWriter | undefined,
+  ): Promise<void> {
+    const store = this.options.memoryStore!;
+    const url = this.options.session.currentUrl();
+    const domain = domainOf(url);
+    try {
+      await store.recordRun({
+        task,
+        domain,
+        success: result.success,
+        steps: result.stepsTaken,
+        result: result.result,
+        at: new Date().toISOString(),
+        ...(trace ? { traceDir: trace.dir } : {}),
+      });
+    } catch (error) {
+      log.warn({ error }, 'failed to record run in memory store');
+    }
+
+    // Only verified successes with real live steps become skills.
+    const liveSteps = result.history.filter((entry) => entry.step > 0);
+    if (!result.success || !this.options.skillInductorModel || liveSteps.length < 2) return;
+    try {
+      const inductor = new SkillInductor(this.options.skillInductorModel);
+      const draft = await inductor.induce(
+        task,
+        url,
+        liveSteps.map((entry) => `Step ${entry.step}: ${entry.goal}\n${entry.actionsSummary}`),
+      );
+      await store.addSkill(domain, draft);
+    } catch (error) {
+      log.warn({ error }, 'skill induction failed');
+    }
   }
 }
