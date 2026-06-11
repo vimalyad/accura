@@ -1,6 +1,12 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import fastifyStatic from '@fastify/static';
 import { z } from 'zod';
 import type { RunManager } from './runManager.js';
+
+export interface ServerOptions {
+  /** Directory with the built web console (apps/web/dist); served at /. */
+  staticDir?: string;
+}
 
 const CreateRunSchema = z.object({
   task: z.string().min(1),
@@ -9,8 +15,12 @@ const CreateRunSchema = z.object({
   maxSteps: z.number().int().positive().max(100).optional(),
 });
 
-export function buildServer(manager: RunManager): FastifyInstance {
+export function buildServer(manager: RunManager, options?: ServerOptions): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: 1024 * 1024 });
+
+  if (options?.staticDir) {
+    void app.register(fastifyStatic, { root: options.staticDir });
+  }
 
   // Permissive CORS so the vite dev server can talk to us during development.
   app.addHook('onSend', async (_request, reply) => {

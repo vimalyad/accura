@@ -4,7 +4,14 @@ import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/.turbo/**', '**/coverage/**'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/.turbo/**',
+      '**/coverage/**',
+      // standalone node verification scripts, run manually
+      'apps/server/console-check.mjs',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
