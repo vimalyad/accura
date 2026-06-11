@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createLogger } from '@accura/shared';
 import { RunManager } from './runManager.js';
@@ -18,7 +19,8 @@ const manager = new RunManager(
   concurrency,
 );
 
-const app = buildServer(manager);
+const webDist = resolve('apps', 'web', 'dist');
+const app = buildServer(manager, existsSync(webDist) ? { staticDir: webDist } : {});
 
 app
   .listen({ port, host })
