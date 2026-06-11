@@ -28,6 +28,18 @@
       "thinking": "adaptive",
       "effort": "high",
       "maxTokens": 8192
+    },
+    "extractor": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "maxTokens": 8192
+    },
+    "skill-inductor": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "maxTokens": 4096
     }
   },
   "browser": {
