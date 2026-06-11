@@ -19,6 +19,7 @@
     "@accura/actions": "workspace:*",
     "@accura/agent": "workspace:*",
     "@accura/browser": "workspace:*",
+    "@accura/evals": "workspace:*",
     "@accura/llm": "workspace:*",
     "@accura/shared": "workspace:*"
   },
