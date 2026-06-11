@@ -116,5 +116,8 @@ export function describeObservation(observation: AgentObservation): string {
     lines.push(`Downloads: ${observation.downloads.join('; ')}`);
   }
   lines.push('', 'Interactive elements:', observation.elementsText);
+  if (observation.pageText.trim()) {
+    lines.push('', 'Visible page text (excerpt):', observation.pageText.slice(0, 2000));
+  }
   return lines.join('\n');
 }
