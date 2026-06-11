@@ -50,6 +50,9 @@ importers:
       '@accura/llm':
         specifier: workspace:*
         version: link:../../packages/llm
+      '@accura/memory':
+        specifier: workspace:*
+        version: link:../../packages/memory
       '@accura/shared':
         specifier: workspace:*
         version: link:../../packages/shared
