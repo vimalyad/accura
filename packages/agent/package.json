@@ -22,6 +22,7 @@
     "@accura/actions": "workspace:*",
     "@accura/browser": "workspace:*",
     "@accura/llm": "workspace:*",
+    "@accura/memory": "workspace:*",
     "@accura/perception": "workspace:*",
     "@accura/shared": "workspace:*",
     "@accura/verify": "workspace:*",
