@@ -4,12 +4,14 @@ import { ModelRouter } from '@accura/llm';
 import { BrowserSession } from '@accura/browser';
 import { buildCoreRegistry } from '@accura/actions';
 import { Agent } from '@accura/agent';
-import { MemoryStore } from '@accura/memory';
+import { MemoryStore, type AgentMemory } from '@accura/memory';
 import type { RunRequest, RunWiring } from './runManager.js';
 
 export interface WiringOptions {
   configsDir: string;
   dataDir: string;
+  /** Shared memory backend (Postgres in multi-user mode); falls back to files. */
+  memory?: AgentMemory;
 }
 
 /**
@@ -35,7 +37,7 @@ export function defaultWiring(options: WiringOptions): RunWiring {
         judgeModel: router.modelFor('judge'),
         plannerModel: router.modelFor('planner'),
         skillInductorModel: router.modelFor('skill-inductor'),
-        memoryStore: new MemoryStore(resolve(options.dataDir, 'memory')),
+        memoryStore: options.memory ?? new MemoryStore(resolve(options.dataDir, 'memory')),
         traceDir: resolve(options.dataDir, 'traces'),
         maxSteps: request.maxSteps ?? profile.maxSteps,
         ...(request.startUrl ? { startUrl: request.startUrl } : {}),

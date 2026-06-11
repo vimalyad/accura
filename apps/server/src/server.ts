@@ -54,11 +54,10 @@ export function buildServer(manager: RunManager, options?: ServerOptions): Fasti
    * SSE stream: replays the run's buffered events, then goes live.
    * Closes after the terminal 'result' event.
    */
-  app.get('/api/runs/:id/stream', (request, reply) => {
+  app.get('/api/runs/:id/stream', async (request, reply) => {
     const { id } = request.params as { id: string };
     if (!manager.get(id)) {
-      void reply.code(404).send({ error: 'run not found' });
-      return;
+      return reply.code(404).send({ error: 'run not found' });
     }
 
     reply.raw.writeHead(200, {
@@ -69,13 +68,16 @@ export function buildServer(manager: RunManager, options?: ServerOptions): Fasti
     });
     reply.raw.write(': connected\n\n');
 
-    const unsubscribe = manager.subscribe(id, (event) => {
+    // self-referential: the listener needs the unsubscribe handle
+    const handle: { unsubscribe?: () => void } = {};
+    handle.unsubscribe = await manager.subscribe(id, (event) => {
       reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
       if (event.type === 'result') {
-        unsubscribe?.();
+        handle.unsubscribe?.();
         reply.raw.end();
       }
     });
+    const unsubscribe = handle.unsubscribe;
 
     request.raw.on('close', () => unsubscribe?.());
   });

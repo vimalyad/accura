@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import type { AgentEvent, AgentResult } from '@accura/agent';
 import { RunManager, type RunWiring } from '../src/runManager.js';
 
@@ -81,7 +81,7 @@ describe('RunManager', () => {
     await waitForStatus(manager, run.id, ['succeeded']);
 
     const replayed: AgentEvent[] = [];
-    manager.subscribe(run.id, (event) => replayed.push(event));
+    await manager.subscribe(run.id, (event) => replayed.push(event));
 
     expect(replayed.map((e) => e.type)).toEqual(['start', 'step', 'step', 'result']);
     const steps = replayed.filter((e) => e.type === 'step');
@@ -97,14 +97,103 @@ describe('RunManager', () => {
     await waitForStatus(manager, run.id, ['error']);
 
     const events: AgentEvent[] = [];
-    manager.subscribe(run.id, (event) => events.push(event));
+    await manager.subscribe(run.id, (event) => events.push(event));
     expect(events.at(-1)).toMatchObject({ type: 'result', success: false });
     expect(manager.get(run.id)!.error).toContain('browser exploded');
   });
 
-  it('returns undefined for unknown runs', () => {
+  it('returns undefined for unknown runs', async () => {
     const manager = new RunManager(scriptedWiring());
     expect(manager.get('nope')).toBeUndefined();
-    expect(manager.subscribe('nope', () => undefined)).toBeUndefined();
+    expect(await manager.subscribe('nope', () => undefined)).toBeUndefined();
+  });
+});
+
+/** In-memory RunPersistence double — validates the persistence contract. */
+function fakePersistence() {
+  const runs = new Map<string, Record<string, unknown>>();
+  const events = new Map<string, AgentEvent[]>();
+  return {
+    runs,
+    events,
+    async insertRun(summary: { id: string }) {
+      runs.set(summary.id, { ...summary });
+    },
+    async updateRun(summary: { id: string }) {
+      runs.set(summary.id, { ...runs.get(summary.id), ...summary });
+    },
+    async appendEvent(runId: string, seq: number, event: AgentEvent) {
+      const list = events.get(runId) ?? [];
+      list[seq] = event;
+      events.set(runId, list);
+    },
+    async listRuns() {
+      return [...runs.values()] as never;
+    },
+    async listEvents(runId: string) {
+      return events.get(runId) ?? [];
+    },
+  };
+}
+
+describe('RunManager persistence', () => {
+  it('persists run lifecycle and events', async () => {
+    const persistence = fakePersistence();
+    const manager = new RunManager(scriptedWiring(), 2, persistence);
+    const run = manager.create({ task: 'persist me' });
+    await waitForStatus(manager, run.id, ['succeeded']);
+    // fire-and-forget writes settle on the microtask queue
+    await delay(50);
+
+    expect(persistence.runs.get(run.id)).toMatchObject({
+      status: 'succeeded',
+      result: 'done!',
+      stepsTaken: 2,
+    });
+    expect(persistence.events.get(run.id)?.map((e) => e.type)).toEqual([
+      'start',
+      'step',
+      'step',
+      'result',
+    ]);
+  });
+
+  it('hydrates history after a restart and replays persisted events', async () => {
+    const persistence = fakePersistence();
+    const before = new RunManager(scriptedWiring(), 2, persistence);
+    const run = before.create({ task: 'survive restarts' });
+    await waitForStatus(before, run.id, ['succeeded']);
+    await delay(50);
+
+    // "restart": a brand-new manager over the same persistence
+    const after = new RunManager(scriptedWiring(), 2, persistence);
+    await after.hydrate();
+
+    expect(after.get(run.id)).toMatchObject({ task: 'survive restarts', status: 'succeeded' });
+
+    const replayed: AgentEvent[] = [];
+    await after.subscribe(run.id, (event) => replayed.push(event));
+    expect(replayed.map((e) => e.type)).toEqual(['start', 'step', 'step', 'result']);
+  });
+
+  it('marks interrupted runs as errors on hydration', async () => {
+    const persistence = fakePersistence();
+    persistence.runs.set('stuck-run', {
+      id: 'stuck-run',
+      task: 'was mid-flight',
+      profile: 'dev',
+      status: 'running',
+      createdAt: new Date().toISOString(),
+    });
+
+    const manager = new RunManager(scriptedWiring(), 2, persistence);
+    await manager.hydrate();
+    await delay(20);
+
+    expect(manager.get('stuck-run')).toMatchObject({
+      status: 'error',
+      error: 'interrupted by server restart',
+    });
+    expect(persistence.runs.get('stuck-run')).toMatchObject({ status: 'error' });
   });
 });
