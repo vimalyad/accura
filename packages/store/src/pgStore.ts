@@ -20,6 +20,13 @@ export interface StoredRunSummary {
   stepsTaken?: number;
   result?: string;
   error?: string;
+  userId?: string;
+}
+
+export interface StoredUser {
+  id: string;
+  email: string;
+  passwordHash: string;
 }
 
 /**
@@ -49,9 +56,16 @@ export class PgStore implements AgentMemory {
 
   async insertRun(summary: StoredRunSummary): Promise<void> {
     await this.pool.query(
-      `INSERT INTO runs (id, task, profile, status, created_at)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [summary.id, summary.task, summary.profile, summary.status, summary.createdAt],
+      `INSERT INTO runs (id, task, profile, status, created_at, user_id)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        summary.id,
+        summary.task,
+        summary.profile,
+        summary.status,
+        summary.createdAt,
+        summary.userId ?? null,
+      ],
     );
   }
 
@@ -99,6 +113,58 @@ export class PgStore implements AgentMemory {
       [runId],
     );
     return rows.map((row: { payload: AgentEvent }) => row.payload);
+  }
+
+  // ── users & sessions (email+password auth) ───────────────────────
+
+  /** Throws 'email already registered' on duplicates. */
+  async createUser(email: string, passwordHash: string): Promise<StoredUser> {
+    const user: StoredUser = { id: randomUUID(), email: email.toLowerCase(), passwordHash };
+    try {
+      await this.pool.query(
+        `INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)`,
+        [user.id, user.email, user.passwordHash],
+      );
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505') {
+        throw new Error('email already registered', { cause: error });
+      }
+      throw error;
+    }
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<StoredUser | undefined> {
+    const { rows } = await this.pool.query(
+      `SELECT id, email, password_hash FROM users WHERE email = $1`,
+      [email.toLowerCase()],
+    );
+    const row = rows[0] as { id: string; email: string; password_hash: string } | undefined;
+    return row ? { id: row.id, email: row.email, passwordHash: row.password_hash } : undefined;
+  }
+
+  async createSession(userId: string, ttlDays = 30): Promise<string> {
+    const token = randomUUID();
+    await this.pool.query(
+      `INSERT INTO sessions (token, user_id, expires_at)
+       VALUES ($1, $2, now() + ($3 || ' days')::interval)`,
+      [token, userId, String(ttlDays)],
+    );
+    return token;
+  }
+
+  async getSessionUser(token: string): Promise<{ id: string; email: string } | undefined> {
+    const { rows } = await this.pool.query(
+      `SELECT u.id, u.email FROM sessions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.token = $1 AND s.expires_at > now()`,
+      [token],
+    );
+    return rows[0] as { id: string; email: string } | undefined;
+  }
+
+  async deleteSession(token: string): Promise<void> {
+    await this.pool.query(`DELETE FROM sessions WHERE token = $1`, [token]);
   }
 
   // ── AgentMemory (skills + memory runs) ───────────────────────────
@@ -209,6 +275,7 @@ interface RunRow {
   steps_taken: number | null;
   result: string | null;
   error: string | null;
+  user_id: string | null;
 }
 
 function mapRunRow(row: RunRow): StoredRunSummary {
@@ -222,6 +289,7 @@ function mapRunRow(row: RunRow): StoredRunSummary {
     ...(row.steps_taken !== null ? { stepsTaken: row.steps_taken } : {}),
     ...(row.result !== null ? { result: row.result } : {}),
     ...(row.error !== null ? { error: row.error } : {}),
+    ...(row.user_id !== null ? { userId: row.user_id } : {}),
   };
 }
 

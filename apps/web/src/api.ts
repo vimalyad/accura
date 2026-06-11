@@ -39,6 +39,43 @@ export interface CreateRunInput {
   maxSteps?: number;
 }
 
+export interface MeResponse {
+  authEnabled: boolean;
+  user: { email: string } | null;
+}
+
+export async function getMe(): Promise<MeResponse> {
+  const response = await fetch('/api/auth/me');
+  if (!response.ok) throw new Error(`me failed (${response.status})`);
+  return (await response.json()) as MeResponse;
+}
+
+async function authPost(path: string, body?: unknown): Promise<{ email: string }> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string;
+    user?: { email: string };
+  };
+  if (!response.ok) throw new Error(data.error ?? `request failed (${response.status})`);
+  return data.user ?? { email: '' };
+}
+
+export function signup(email: string, password: string): Promise<{ email: string }> {
+  return authPost('/api/auth/signup', { email, password });
+}
+
+export function login(email: string, password: string): Promise<{ email: string }> {
+  return authPost('/api/auth/login', { email, password });
+}
+
+export async function logout(): Promise<void> {
+  await authPost('/api/auth/logout');
+}
+
 export async function createRun(input: CreateRunInput): Promise<RunSummary> {
   const response = await fetch('/api/runs', {
     method: 'POST',

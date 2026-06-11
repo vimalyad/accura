@@ -9,6 +9,8 @@ export interface RunRequest {
   startUrl?: string;
   profile?: string;
   maxSteps?: number;
+  /** Owner in multi-user mode; unset in single-user/file mode. */
+  userId?: string;
 }
 
 export type RunStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'error';
@@ -23,6 +25,7 @@ export interface RunSummary {
   stepsTaken?: number;
   result?: string;
   error?: string;
+  userId?: string;
 }
 
 /**
@@ -64,6 +67,7 @@ export interface RunPersistence {
       stepsTaken?: number;
       result?: string;
       error?: string;
+      userId?: string;
     }>
   >;
   listEvents(runId: string): Promise<AgentEvent[]>;
@@ -131,6 +135,7 @@ export class RunManager {
       profile: request.profile ?? 'dev',
       status: 'queued',
       createdAt: new Date().toISOString(),
+      ...(request.userId ? { userId: request.userId } : {}),
     };
     this.runs.set(summary.id, {
       summary,
@@ -157,9 +162,14 @@ export class RunManager {
     return state ? { ...state.summary } : undefined;
   }
 
-  list(): RunSummary[] {
+  /**
+   * With a userId: that user's runs plus legacy unowned rows.
+   * Without: everything (single-user mode).
+   */
+  list(userId?: string): RunSummary[] {
     return [...this.runs.values()]
       .map((state) => ({ ...state.summary }))
+      .filter((summary) => !userId || !summary.userId || summary.userId === userId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 

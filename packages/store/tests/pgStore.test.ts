@@ -166,6 +166,39 @@ describe.skipIf(!databaseUrl)('PgStore (postgres integration)', () => {
     expect(ranked.map((s) => s.title)).toEqual(['strong', 'weak']);
   });
 
+  it('manages users and sessions', async () => {
+    const email = `user-${randomUUID().slice(0, 8)}@example.com`;
+    const user = await store.createUser(email, 'salt$hash');
+    expect(user.email).toBe(email);
+
+    await expect(store.createUser(email.toUpperCase(), 'x')).rejects.toThrow(
+      'email already registered',
+    );
+
+    const fetched = await store.getUserByEmail(email.toUpperCase());
+    expect(fetched).toMatchObject({ id: user.id, passwordHash: 'salt$hash' });
+
+    const token = await store.createSession(user.id);
+    expect(await store.getSessionUser(token)).toEqual({ id: user.id, email });
+    await store.deleteSession(token);
+    expect(await store.getSessionUser(token)).toBeUndefined();
+  });
+
+  it('scopes run summaries by user id', async () => {
+    const id = randomUUID();
+    const userId = (await store.createUser(`owner-${id.slice(0, 8)}@example.com`, 'h$h')).id;
+    await store.insertRun({
+      id,
+      task: 'owned run',
+      profile: 'dev',
+      status: 'queued',
+      createdAt: new Date().toISOString(),
+      userId,
+    });
+    const fetched = await store.getRun(id);
+    expect(fetched?.userId).toBe(userId);
+  });
+
   it('records and lists memory runs', async () => {
     const domain = `dom-${randomUUID().slice(0, 8)}.example`;
     await store.recordRun({
