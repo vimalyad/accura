@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createRun,
+  getMe,
   listRuns,
+  logout,
   streamRun,
   type AgentEvent,
   type RunSummary,
 } from './api';
+import { AuthGate } from './AuthGate';
+
+type AuthState =
+  | { kind: 'loading' }
+  | { kind: 'anonymous' }
+  | { kind: 'open' } // auth disabled (single-user mode)
+  | { kind: 'authed'; email: string };
 
 function useClock(): string {
   const [now, setNow] = useState(() => new Date());
@@ -17,6 +26,7 @@ function useClock(): string {
 }
 
 export default function App() {
+  const [auth, setAuth] = useState<AuthState>({ kind: 'loading' });
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [events, setEvents] = useState<AgentEvent[]>([]);
@@ -24,6 +34,21 @@ export default function App() {
   const [submitting, setSubmitting] = useState(false);
   const stopStream = useRef<(() => void) | null>(null);
   const clock = useClock();
+  const authed = auth.kind === 'authed' || auth.kind === 'open';
+
+  useEffect(() => {
+    getMe()
+      .then((me) =>
+        setAuth(
+          !me.authEnabled
+            ? { kind: 'open' }
+            : me.user
+              ? { kind: 'authed', email: me.user.email }
+              : { kind: 'anonymous' },
+        ),
+      )
+      .catch(() => setAuth({ kind: 'open' }));
+  }, []);
 
   const refreshRuns = useCallback(() => {
     listRuns()
@@ -32,10 +57,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!authed) return;
     refreshRuns();
     const timer = setInterval(refreshRuns, 3000);
     return () => clearInterval(timer);
-  }, [refreshRuns]);
+  }, [refreshRuns, authed]);
+
+  async function signOut() {
+    stopStream.current?.();
+    await logout().catch(() => undefined);
+    setRuns([]);
+    setSelectedId(null);
+    setEvents([]);
+    setAuth({ kind: 'anonymous' });
+  }
 
   const selectRun = useCallback((id: string) => {
     stopStream.current?.();
@@ -79,6 +114,13 @@ export default function App() {
   const result = events.find((e) => e.type === 'result');
   const isLive = selected?.status === 'running' || selected?.status === 'queued';
 
+  if (auth.kind === 'loading') {
+    return <div className="empty" style={{ paddingTop: '38vh' }}>Connecting…</div>;
+  }
+  if (auth.kind === 'anonymous') {
+    return <AuthGate onAuthed={(email) => setAuth({ kind: 'authed', email })} />;
+  }
+
   return (
     <div className="app">
       <header className="header">
@@ -87,6 +129,14 @@ export default function App() {
         </div>
         <div className="sub">verified browser automation</div>
         <div className="clock">{clock}</div>
+        {auth.kind === 'authed' && (
+          <div className="account">
+            <span className="account-email">{auth.email}</span>
+            <button type="button" onClick={() => void signOut()}>
+              sign out
+            </button>
+          </div>
+        )}
       </header>
 
       <aside className="sidebar">
