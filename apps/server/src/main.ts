@@ -33,8 +33,15 @@ const manager = new RunManager(
 );
 await manager.hydrate();
 
+// Auth rides on multi-user mode; ACCURA_AUTH=disabled opts out explicitly.
+const authEnabled = Boolean(store) && process.env.ACCURA_AUTH !== 'disabled';
+if (store && !authEnabled) log.warn('auth explicitly disabled (ACCURA_AUTH=disabled)');
+
 const webDist = resolve('apps', 'web', 'dist');
-const app = buildServer(manager, existsSync(webDist) ? { staticDir: webDist } : {});
+const app = buildServer(manager, {
+  ...(existsSync(webDist) ? { staticDir: webDist } : {}),
+  ...(authEnabled && store ? { authStore: store } : {}),
+});
 
 try {
   const address = await app.listen({ port, host });
