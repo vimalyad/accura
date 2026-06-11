@@ -1,0 +1,38 @@
+{
+  "name": "fixtures",
+  "tasks": [
+    {
+      "id": "form-signup",
+      "instruction": "Sign up as Ada Lovelace with email ada@example.com and report the confirmation message",
+      "startUrl": "fixture:/form",
+      "maxSteps": 8,
+      "tags": ["fixture", "smoke"],
+      "groundTruth": {
+        "mustContain": ["Thanks Ada Lovelace", "ada@example.com"],
+        "successExpected": true
+      }
+    },
+    {
+      "id": "price-lookup",
+      "instruction": "Find the price of the Super Widget",
+      "startUrl": "fixture:/prices",
+      "maxSteps": 6,
+      "tags": ["fixture", "smoke"],
+      "groundTruth": {
+        "mustContain": ["$49.99"],
+        "successExpected": true
+      }
+    },
+    {
+      "id": "nav-founding",
+      "instruction": "Find out which year the company was founded and in which city",
+      "startUrl": "fixture:/nav",
+      "maxSteps": 8,
+      "tags": ["fixture", "smoke"],
+      "groundTruth": {
+        "mustContain": ["2019", "Pune"],
+        "successExpected": true
+      }
+    }
+  ]
+}
