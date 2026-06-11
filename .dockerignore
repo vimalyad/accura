@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+**/dist
+**/.turbo
+.git
+.accura
+.claude
+reference
+eval-reports
+coverage
+*.log
+implementation.md
+CHANGES.md

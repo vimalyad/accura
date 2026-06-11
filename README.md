@@ -9,7 +9,23 @@ it re-observes after every action, verifies every step, samples multiple
 candidates at uncertain decisions, simulates irreversible actions before
 running them, and refuses to declare success it cannot prove.
 
-## Quickstart
+## Quickstart (Docker — recommended)
+
+The complete stack — API server, web console, the agent's chromium, and
+Postgres — runs in containers:
+
+```sh
+docker compose up --build
+# console at http://localhost:7700  ·  Postgres at localhost:5434
+```
+
+Multi-user mode is automatic: with `DATABASE_URL` set (compose does this),
+run history and the shared skill memory live in Postgres with
+concurrent-writer-safe updates, and the console's history survives restarts.
+Model keys pass through from your shell: `ANTHROPIC_API_KEY`, `GROQ_API_KEY`,
+`GEMINI_API_KEY`.
+
+## Quickstart (local, single-user)
 
 ```sh
 pnpm install
@@ -185,6 +201,9 @@ judge-agreement tracking) — no accuracy claim without numbers.
 | `@accura/agent` | The loop: planner, best-of-N arbiter, simulation gate, recovery policy, done gating, JSONL traces |
 | `@accura/memory` | Cross-run skills: induction from verified successes, deterministic replay with live fallback, scoring/retirement |
 | `@accura/evals` | Task suites, multi-seed runner, bootstrap CIs, judge-agreement harness, failure clustering |
+| `@accura/store` | Postgres persistence: run history + event log, shared skill memory with concurrent-writer-safe scoring |
+| `apps/server` | Fastify API: run queue, SSE live streaming, Postgres hydration, serves the console |
+| `apps/web` | The console UI: submit tasks, watch runs live, browse history |
 | `apps/cli` | `accura "<task>"` and `accura eval <suite>` |
 
 ## Status

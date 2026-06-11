@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: accura
+      POSTGRES_PASSWORD: accura
+      POSTGRES_DB: accura
+    ports:
+      - '5434:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U accura -d accura']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  accura:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://accura:accura@postgres:5432/accura
+      HOST: 0.0.0.0
+      PORT: 7700
+      ACCURA_CONCURRENCY: 2
+      # model credentials pass through from the host shell / .env file
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - '7700:7700'
+    volumes:
+      - accura-data:/app/.accura
+
+volumes:
+  pgdata:
+  accura-data:
