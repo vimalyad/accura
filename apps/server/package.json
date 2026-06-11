@@ -1,0 +1,32 @@
+{
+  "name": "@accura/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@accura/actions": "workspace:*",
+    "@accura/agent": "workspace:*",
+    "@accura/browser": "workspace:*",
+    "@accura/llm": "workspace:*",
+    "@accura/memory": "workspace:*",
+    "@accura/shared": "workspace:*",
+    "fastify": "^5.8.5",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "eslint": "^10.4.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}
