@@ -7,6 +7,15 @@ import {
   type RunSummary,
 } from './api';
 
+function useClock(): string {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return now.toISOString().slice(11, 19) + ' UTC';
+}
+
 export default function App() {
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -14,6 +23,7 @@ export default function App() {
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const stopStream = useRef<(() => void) | null>(null);
+  const clock = useClock();
 
   const refreshRuns = useCallback(() => {
     listRuns()
@@ -67,22 +77,25 @@ export default function App() {
     .reverse()
     .find((e) => e.type === 'step' && e.screenshotBase64);
   const result = events.find((e) => e.type === 'result');
+  const isLive = selected?.status === 'running' || selected?.status === 'queued';
 
   return (
     <div className="app">
       <header className="header">
         <div className="logo">
-          ACCURA<span>.</span>
+          Accura<span>.</span>
         </div>
-        <div className="sub">accuracy-first browser agent console</div>
+        <div className="sub">verified browser automation</div>
+        <div className="clock">{clock}</div>
       </header>
 
       <aside className="sidebar">
-        <h2>Runs</h2>
-        {runs.length === 0 && <div className="empty">No runs yet</div>}
+        <h2>Mission log</h2>
+        {runs.length === 0 && <div className="empty">Nothing on record yet.</div>}
         {runs.map((run) => (
           <button
             key={run.id}
+            data-status={run.status}
             className={`run-item ${run.id === selectedId ? 'selected' : ''}`}
             onClick={() => selectRun(run.id)}
           >
@@ -104,15 +117,18 @@ export default function App() {
             void submit(new FormData(event.currentTarget));
           }}
         >
-          <textarea
-            name="task"
-            placeholder='Describe the task, e.g. "Find the price of the Super Widget and report it"'
-          />
+          <div className="prompt-row">
+            <span className="prompt-glyph">▸</span>
+            <textarea
+              name="task"
+              placeholder="State the task. Every value in the answer will be verified against the page before it reaches you."
+            />
+          </div>
           <div className="row">
-            <input className="url" name="startUrl" placeholder="Start URL (optional)" />
+            <input className="url" name="startUrl" placeholder="start url (optional)" />
             <select name="profile" defaultValue="dev">
-              <option value="dev">dev (free models)</option>
-              <option value="final">final (Claude)</option>
+              <option value="dev">dev · free models</option>
+              <option value="final">final · claude</option>
             </select>
             <input name="maxSteps" type="number" min="1" max="100" placeholder="max steps" />
             <button type="submit" disabled={submitting}>
@@ -122,31 +138,44 @@ export default function App() {
           {formError && <div className="error">{formError}</div>}
         </form>
 
-        {!selected && <div className="empty">Submit a task or select a run to watch it live.</div>}
+        {!selected && (
+          <div className="empty">Submit a task, or pick a run from the mission log.</div>
+        )}
 
         {selected && (
           <div className="run-view">
             <div className="screenshot-pane">
-              {latestShot?.type === 'step' && latestShot.screenshotBase64 ? (
-                <img
-                  src={`data:image/png;base64,${latestShot.screenshotBase64}`}
-                  alt={`step ${latestShot.step}`}
-                />
-              ) : (
-                <div className="placeholder">
-                  {selected.status === 'queued' ? 'Queued…' : 'No screenshot yet (DOM-only model)'}
-                </div>
-              )}
+              <div className="monitor-bar">
+                <i /><i /><i />
+                <span className={`live ${isLive ? '' : 'done'}`}>
+                  {isLive ? 'live' : 'ended'}
+                </span>
+              </div>
+              <div className="viewport">
+                {latestShot?.type === 'step' && latestShot.screenshotBase64 ? (
+                  <img
+                    src={`data:image/png;base64,${latestShot.screenshotBase64}`}
+                    alt={`step ${latestShot.step}`}
+                  />
+                ) : (
+                  <div className="placeholder">
+                    {selected.status === 'queued'
+                      ? 'queued — waiting for a slot'
+                      : 'no frames yet (dom-only model)'}
+                  </div>
+                )}
+              </div>
               {latestStep?.type === 'step' && <div className="url mono">{latestStep.url}</div>}
             </div>
 
             <div className="feed">
               {result && (
-                <div className={`result-banner ${result.type === 'result' && result.success ? 'ok' : 'bad'}`}>
-                  <strong>{result.type === 'result' && result.success ? 'Success' : 'Failed'}</strong>
+                <div
+                  className={`result-banner ${result.type === 'result' && result.success ? 'ok' : 'bad'}`}
+                >
+                  <strong>{result.type === 'result' && result.success ? 'Verified' : 'Failed'}</strong>
                   {result.type === 'result' && (
                     <>
-                      {' '}
                       after {result.stepsTaken} steps — {result.result}
                     </>
                   )}
@@ -167,7 +196,7 @@ function EventCard({ event }: { event: AgentEvent }) {
   switch (event.type) {
     case 'start':
       return (
-        <div className="card">
+        <div className="card kind-start">
           <div className="card-head">
             <span className="badge info">start</span>
             <span className="goal">{event.task}</span>
@@ -176,7 +205,7 @@ function EventCard({ event }: { event: AgentEvent }) {
       );
     case 'plan':
       return (
-        <div className="card">
+        <div className="card kind-plan">
           <div className="card-head">
             <span className="badge info">plan r{event.revision}</span>
           </div>
@@ -185,7 +214,7 @@ function EventCard({ event }: { event: AgentEvent }) {
       );
     case 'replay':
       return (
-        <div className="card">
+        <div className="card kind-replay">
           <div className="card-head">
             <span className={`badge ${event.complete ? 'success' : 'uncertain'}`}>replay</span>
           </div>
@@ -194,7 +223,7 @@ function EventCard({ event }: { event: AgentEvent }) {
       );
     case 'step':
       return (
-        <div className="card">
+        <div className="card kind-step">
           <div className="card-head">
             <span className={`badge ${event.evaluation}`}>{event.evaluation}</span>
             <span className="goal">
@@ -209,7 +238,7 @@ function EventCard({ event }: { event: AgentEvent }) {
       );
     case 'judge':
       return (
-        <div className="card">
+        <div className="card kind-judge">
           <div className="card-head">
             <span className={`badge ${event.verdict ? 'success' : 'failure'}`}>judge</span>
             <span>{event.verdict ? 'approved' : (event.reason ?? 'rejected')}</span>
@@ -218,7 +247,7 @@ function EventCard({ event }: { event: AgentEvent }) {
       );
     case 'rejection':
       return (
-        <div className="card">
+        <div className="card kind-rejection">
           <div className="card-head">
             <span className="badge failure">rejected</span>
           </div>
