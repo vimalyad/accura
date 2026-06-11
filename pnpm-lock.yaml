@@ -223,6 +223,34 @@ importers:
         specifier: ^4.1.8
         version: 4.1.8(@types/node@25.9.2)(vite@8.0.16(@types/node@25.9.2))
 
+  packages/verify:
+    dependencies:
+      '@accura/llm':
+        specifier: workspace:*
+        version: link:../llm
+      '@accura/perception':
+        specifier: workspace:*
+        version: link:../perception
+      '@accura/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^25.9.2
+        version: 25.9.2
+      eslint:
+        specifier: ^10.4.1
+        version: 10.4.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.8(@types/node@25.9.2)(vite@8.0.16(@types/node@25.9.2))
+
 packages:
 
   '@anthropic-ai/sdk@0.104.0':
