@@ -29,24 +29,148 @@ Profiles live in `configs/`. `dev.json` targets free models (Ollama
 needs `ANTHROPIC_API_KEY`. Same code, same prompts — the profile is the
 only difference.
 
-## How it works
+## Architecture
 
-```
-task ─► PLANNER (checklist, trigger-driven replanning)
-loop:  browser ──stability gate──► PERCEPTION ─► indexed elements + page text
-       skills(memory) injected ─► EXECUTOR (structured output, zod-validated)
-            ├─ flagged decision? ─► best-of-3 candidates + judge arbiter
-            ├─ irreversible action? ─► simulate outcome, block on mismatch
-       ACTIONS (enumerated ids only — no selector hallucination; batched
-                with stale-DOM guards; recovery policy hard-blocks repeats)
-       STEP VERIFIER (state diff + "nothing changed" contradiction check)
-done ─► GROUNDING CHECK (claimed values must exist in observations)
-     ─► TRAJECTORY JUDGE (skeptical, key-point based) ─reject─► resume
-approve ─► result + skill induction ─► memory ─► faster, more reliable reruns
-```
-
-Key design decisions and the research behind them are in
+Design rationale and the research behind every decision:
 [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+### System overview
+
+```mermaid
+flowchart TD
+    CLI["apps/cli<br/>accura run · accura eval"]
+
+    subgraph orchestration["Orchestration"]
+        AGENT["@accura/agent<br/>loop · planner · arbiter ·<br/>simulation gate · recovery · traces"]
+        EVALS["@accura/evals<br/>fixture server · multi-seed runner ·<br/>bootstrap CIs · judge agreement"]
+    end
+
+    subgraph capabilities["Capabilities"]
+        PERCEPTION["@accura/perception<br/>DOM walker · stable element ids ·<br/>new-element diff · observer"]
+        ACTIONS["@accura/actions<br/>zod registry · 16 core actions ·<br/>batching with stale-DOM guards"]
+        VERIFY["@accura/verify<br/>state diff · grounding check ·<br/>trajectory judge"]
+        MEMORY["@accura/memory<br/>skill store · induction ·<br/>deterministic replay"]
+        LLM["@accura/llm<br/>anthropic + openai-compatible ·<br/>structured output · model router"]
+    end
+
+    subgraph foundation["Foundation"]
+        BROWSER["@accura/browser<br/>playwright session · stability gate ·<br/>screenshots · watchdogs · CDP hatch"]
+        SHARED["@accura/shared<br/>Result · errors · logger · profiles"]
+    end
+
+    CLI --> AGENT
+    CLI --> EVALS
+    EVALS --> AGENT
+    AGENT --> PERCEPTION
+    AGENT --> ACTIONS
+    AGENT --> VERIFY
+    AGENT --> MEMORY
+    AGENT --> LLM
+    PERCEPTION --> BROWSER
+    ACTIONS --> BROWSER
+    ACTIONS --> PERCEPTION
+    VERIFY --> LLM
+    MEMORY --> ACTIONS
+    BROWSER --> SHARED
+    LLM --> SHARED
+```
+
+### One agent step, end to end
+
+```mermaid
+flowchart TD
+    START([task]) --> SETUP["judge derives key points<br/>planner creates checklist<br/>memory: matching skills injected,<br/>best skill replayed deterministically"]
+    SETUP --> GATE
+
+    subgraph step["every step"]
+        GATE["stability gate:<br/>domcontentloaded → network quiet →<br/>two zero-mutation windows"]
+        GATE --> OBSERVE["perceive: enumerated elements<br/>[id]&lt;tag&gt; with *new-element marks,<br/>page text, scroll hints, warnings"]
+        OBSERVE --> NOTES["verifier notes: what changed ·<br/>contradiction check ·<br/>FORBIDDEN / STUCK advice"]
+        NOTES --> EXEC["executor → structured output<br/>{eval, memory, goal, actions 1..3}"]
+        EXEC --> FLAGGED{flagged<br/>decision?}
+        FLAGGED -- "uncertain / contradiction" --> BON["sample 3 candidates →<br/>dedup → arbiter picks"]
+        FLAGGED -- no --> IRREV
+        BON --> IRREV{irreversible<br/>action?}
+        IRREV -- yes --> SIM["simulate outcome"]
+        SIM -- mismatch --> BLOCK["block action +<br/>force replan"]
+        SIM -- ok --> RUN
+        IRREV -- no --> RUN["execute batch:<br/>ids → live elements ·<br/>stale-DOM guards ·<br/>recovery hard-blocks repeats"]
+        BLOCK --> RECORD["record step + trace"]
+        RUN --> RECORD
+    end
+
+    RECORD --> DONE{done<br/>declared?}
+    DONE -- no --> GATE
+    DONE -- "success=false" --> HONEST([honest failure returned])
+    DONE -- "success=true" --> GROUND{grounding:<br/>every claimed value<br/>exists in observations?}
+    GROUND -- no --> REJECT["rejection reason injected<br/>(max 2, then honest failure)"]
+    REJECT --> GATE
+    GROUND -- yes --> JUDGE{trajectory judge:<br/>all key points<br/>demonstrably met?}
+    JUDGE -- no --> REJECT
+    JUDGE -- yes --> WIN([success])
+    WIN --> INDUCE["skill induced → memory →<br/>next run replays it"]
+```
+
+### Model roles per profile
+
+```mermaid
+flowchart LR
+    subgraph roles["Agent roles"]
+        E[executor]
+        P[planner]
+        J[judge / arbiter]
+        X[extractor]
+        S[skill-inductor]
+    end
+
+    subgraph dev["configs/dev.json — free"]
+        QWEN["Ollama qwen2.5vl"]
+        LLAMA["Groq Llama 3.3 70B"]
+        GEMINI["Gemini 2.5 Flash"]
+    end
+
+    subgraph final["configs/final.json — Claude"]
+        SONNET["Sonnet 4.6<br/>adaptive thinking · effort high ·<br/>clickAt enabled"]
+        OPUS["Opus 4.8"]
+    end
+
+    E -.-> QWEN
+    P -.-> LLAMA
+    J -.-> GEMINI
+    E ==> SONNET
+    X ==> SONNET
+    S ==> SONNET
+    P ==> OPUS
+    J ==> OPUS
+```
+
+Capability flags degrade gracefully: a non-vision executor gets DOM-only
+observations; only coordinate-grounded models (Claude) get the `clickAt`
+fallback action.
+
+### The five accuracy mechanisms
+
+1. **Clean enumerated action space** (`perception`) — the model picks from
+   stable indexed element ids and never invents selectors. The single
+   highest-leverage change in the published evidence (AgentOccam, +26.6 pts).
+2. **Verification everywhere** (`verify`) — a deterministic state diff after
+   every step, a "your actions succeeded but nothing changed" contradiction
+   check, and a two-layer `done` gate: code-level grounding of claimed values,
+   then a skeptical key-point judge. Attacks the #1 measured failure mode:
+   confident false success.
+3. **Hard recovery rules** (`agent`) — an identical action that failed twice
+   is blocked in code, not just prompted away; stuck-detection forces a
+   strategy change.
+4. **Test-time spending** (`agent`) — best-of-3 with an arbiter at flagged
+   decisions only; outcome simulation before irreversible actions. Latency is
+   the currency, accuracy the purchase.
+5. **Compounding memory** (`memory`) — verified successes are distilled into
+   text-grounded recipes; later runs replay them deterministically and fall
+   back to the live executor at the first mismatch (AWM/SkillWeaver, +31–51%
+   relative).
+
+Everything is measured by `evals` (multi-seed runs, bootstrap 95% CIs,
+judge-agreement tracking) — no accuracy claim without numbers.
 
 ## Packages
 
@@ -65,7 +189,7 @@ Key design decisions and the research behind them are in
 
 ## Status
 
-All 8 build phases are implemented and tested (140+ tests, including
+All 8 build phases are implemented and tested (~120 tests, including
 browser-integration tests against real Chromium and full-pipeline e2e runs
 with scripted oracle models). Pending items that require live model access:
 
