@@ -1,0 +1,30 @@
+{
+  "name": "@accura/cli",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "accura": "./dist/main.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@accura/actions": "workspace:*",
+    "@accura/agent": "workspace:*",
+    "@accura/browser": "workspace:*",
+    "@accura/llm": "workspace:*",
+    "@accura/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "eslint": "^10.4.1",
+    "typescript": "^6.0.3"
+  }
+}

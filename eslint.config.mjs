@@ -16,4 +16,11 @@ export default tseslint.config(
       'no-console': 'error',
     },
   },
+  {
+    // CLI apps talk to the terminal by design.
+    files: ['apps/**'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
 );
