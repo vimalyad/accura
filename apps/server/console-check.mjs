@@ -127,7 +127,7 @@ console.log(`screenshot pane populated: ${screenshotVisible > 0}`);
 await browser.close();
 await app.close();
 
-if (!banner?.includes('Success') || screenshotVisible === 0) {
+if (!banner?.includes('Verified') || screenshotVisible === 0) {
   console.error('EXIT CRITERION FAILED');
   process.exit(1);
 }
