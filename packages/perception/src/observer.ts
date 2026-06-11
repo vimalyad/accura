@@ -97,7 +97,10 @@ export class Observer {
       ),
       scroll: main.scroll,
       newElementIds,
-      dialogs: events.dialogs.map((d) => `${d.type}(${d.handled}): ${d.message}`),
+      dialogs: [
+        ...events.crashes.map((c) => `page crashed at ${c.url} and was restored`),
+        ...events.dialogs.map((d) => `${d.type}(${d.handled}): ${d.message}`),
+      ],
       downloads: events.downloads.map((d) => d.path ?? d.suggestedFilename),
     };
 
