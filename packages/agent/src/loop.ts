@@ -22,7 +22,7 @@ import {
   renderSkills,
   SkillInductor,
   SkillReplayer,
-  type MemoryStore,
+  type AgentMemory,
   type Skill,
 } from '@accura/memory';
 import { buildSystemPrompt, renderHistory, type StepRecord } from './prompts.js';
@@ -51,7 +51,7 @@ export interface AgentOptions {
   /** Pre-flight outcome simulation for irreversible actions. Defaults to plannerModel ?? judgeModel. */
   simulatorModel?: ChatModel;
   /** Cross-run skill memory: replay verified workflows, induce new ones. */
-  memoryStore?: MemoryStore;
+  memoryStore?: AgentMemory;
   /** Model that distills judge-approved successes into reusable skills. */
   skillInductorModel?: ChatModel;
   /** Attempt deterministic replay of the best matching skill at run start. */
