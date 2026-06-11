@@ -42,6 +42,21 @@ CREATE TABLE IF NOT EXISTS skills (
 );
 CREATE INDEX IF NOT EXISTS idx_skills_domain ON skills (domain) WHERE NOT retired;
 
+CREATE TABLE IF NOT EXISTS users (
+  id            UUID PRIMARY KEY,
+  email         TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token      UUID PRIMARY KEY,
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id);
+
 CREATE TABLE IF NOT EXISTS memory_runs (
   id        BIGSERIAL PRIMARY KEY,
   task      TEXT NOT NULL,
@@ -53,4 +68,7 @@ CREATE TABLE IF NOT EXISTS memory_runs (
   trace_dir TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_memory_runs_domain ON memory_runs (domain);
+
+-- additive migration for databases created before multi-user auth
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS user_id UUID;
 `;
