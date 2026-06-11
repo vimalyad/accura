@@ -112,6 +112,9 @@ importers:
       '@accura/shared':
         specifier: workspace:*
         version: link:../shared
+      '@accura/verify':
+        specifier: workspace:*
+        version: link:../verify
       zod:
         specifier: ^4.4.3
         version: 4.4.3

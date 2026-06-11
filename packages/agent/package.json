@@ -24,6 +24,7 @@
     "@accura/llm": "workspace:*",
     "@accura/perception": "workspace:*",
     "@accura/shared": "workspace:*",
+    "@accura/verify": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {
