@@ -11,6 +11,7 @@ export default tseslint.config(
       '**/coverage/**',
       // standalone node verification scripts, run manually
       'apps/server/console-check.mjs',
+      'apps/server/auth-check.mjs',
     ],
   },
   js.configs.recommended,
