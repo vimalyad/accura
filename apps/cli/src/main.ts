@@ -5,6 +5,7 @@ import { ModelRouter } from '@accura/llm';
 import { BrowserSession } from '@accura/browser';
 import { buildCoreRegistry } from '@accura/actions';
 import { Agent } from '@accura/agent';
+import { MemoryStore } from '@accura/memory';
 
 interface CliArgs {
   task: string;
@@ -82,13 +83,22 @@ async function main(): Promise<number> {
   if (args.headed) profile.browser.headless = false;
 
   const router = new ModelRouter(profile);
+  const executorModel = router.modelFor('executor');
   const session = await BrowserSession.launch(profile.browser);
   try {
     const agent = new Agent({
       session,
-      registry: buildCoreRegistry(),
-      executorModel: router.modelFor('executor'),
+      // clickAt only for coordinate-grounded vision models (Claude).
+      registry: buildCoreRegistry({
+        coordinateActions: executorModel.caps.coordinateGrounded,
+      }),
+      executorModel,
       extractorModel: router.modelFor('extractor'),
+      judgeModel: router.modelFor('judge'),
+      plannerModel: router.modelFor('planner'),
+      skillInductorModel: router.modelFor('skill-inductor'),
+      memoryStore: new MemoryStore(resolve('.accura', 'memory')),
+      traceDir: resolve('.accura', 'traces'),
       maxSteps: args.maxSteps ?? profile.maxSteps,
       ...(args.vision !== undefined ? { useVision: args.vision } : {}),
       ...(args.url ? { startUrl: args.url } : {}),

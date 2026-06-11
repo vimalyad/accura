@@ -21,6 +21,7 @@
     "@accura/browser": "workspace:*",
     "@accura/evals": "workspace:*",
     "@accura/llm": "workspace:*",
+    "@accura/memory": "workspace:*",
     "@accura/shared": "workspace:*"
   },
   "devDependencies": {

@@ -271,6 +271,24 @@ export const evaluateJs = defineAction({
   },
 });
 
+export const clickAt = defineAction({
+  name: 'clickAt',
+  description:
+    'FALLBACK ONLY: click at viewport pixel coordinates. Use when id-based click failed twice, or the target is a canvas/slider/drag surface with no element id. Coordinates refer to the screenshot you received, whose dimensions are exact.',
+  params: z.object({
+    x: z.number().min(0).describe('Pixels from the left edge of the viewport'),
+    y: z.number().min(0).describe('Pixels from the top edge of the viewport'),
+  }),
+  async run(ctx, { x, y }) {
+    try {
+      await ctx.session.page.mouse.click(x, y);
+      return { ok: true, message: `Clicked at (${x}, ${y})` };
+    } catch (error) {
+      return failure(error);
+    }
+  },
+});
+
 export const done = defineAction({
   name: 'done',
   description:
@@ -315,8 +333,19 @@ export function coreActions(): ActionDefinition[] {
   ] as unknown as ActionDefinition[];
 }
 
-export function buildCoreRegistry(): ActionRegistry {
+export interface RegistryOptions {
+  /**
+   * Adds clickAt(x, y). Enable ONLY for coordinate-grounded vision models
+   * (Claude); ungrounded models hallucinate coordinates.
+   */
+  coordinateActions?: boolean;
+}
+
+export function buildCoreRegistry(options?: RegistryOptions): ActionRegistry {
   const registry = new ActionRegistry();
   for (const action of coreActions()) registry.register(action);
+  if (options?.coordinateActions) {
+    registry.register(clickAt as unknown as ActionDefinition);
+  }
   return registry;
 }
