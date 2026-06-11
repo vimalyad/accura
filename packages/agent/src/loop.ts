@@ -26,6 +26,7 @@ import {
   type Skill,
 } from '@accura/memory';
 import { buildSystemPrompt, renderHistory, type StepRecord } from './prompts.js';
+import type { AgentEvent, AgentEventListener } from './events.js';
 import { RecoveryPolicy } from './recovery.js';
 import { TraceWriter } from './trace.js';
 import { applyCompletions, Planner, renderPlan, type Plan } from './planner.js';
@@ -65,6 +66,8 @@ export interface AgentOptions {
   startUrl?: string;
   /** Directory for JSONL trajectory traces; omit to disable tracing. */
   traceDir?: string;
+  /** Live lifecycle events (SSE streaming, UIs). Never throws into the loop. */
+  onEvent?: AgentEventListener;
 }
 
 export interface AgentResult {
@@ -122,6 +125,14 @@ export class Agent {
     }) as never;
   }
 
+  private emit(event: AgentEvent): void {
+    try {
+      this.options.onEvent?.(event);
+    } catch (error) {
+      log.warn({ error }, 'onEvent listener threw; ignoring');
+    }
+  }
+
   async run(task: string): Promise<AgentResult> {
     const maxSteps = this.options.maxSteps ?? 40;
     const maxDoneRejections = this.options.maxDoneRejections ?? 2;
@@ -146,6 +157,7 @@ export class Agent {
       ? await TraceWriter.create(this.options.traceDir)
       : undefined;
     await trace?.meta({ task, maxSteps, executor: this.options.executorModel.id });
+    this.emit({ type: 'start', task, maxSteps });
 
     let keyPoints: string[] = [task];
     if (judge) {
@@ -186,6 +198,7 @@ export class Agent {
               : 'Known workflow replay stopped early; continue manually from the current page state.',
           });
           await trace?.step({ step: 0, replay: replay.summary });
+          this.emit({ type: 'replay', summary: replay.summary, complete: replay.complete });
         } catch (error) {
           log.warn({ error }, 'skill replay crashed; continuing live');
         }
@@ -230,6 +243,7 @@ export class Agent {
           plan = await planner.createPlan(task, describeObservation(observation));
           lastPlanStep = step;
           await trace?.step({ step, plan: renderPlan(plan), revision: plan.revision });
+          this.emit({ type: 'plan', step, plan: renderPlan(plan), revision: plan.revision });
         } catch (error) {
           log.warn({ error }, 'initial planning failed; continuing without a plan');
         }
@@ -248,6 +262,7 @@ export class Agent {
             lastPlanStep = step;
             pendingReplanReason = undefined;
             await trace?.step({ step, plan: renderPlan(plan), revision: plan.revision });
+            this.emit({ type: 'plan', step, plan: renderPlan(plan), revision: plan.revision });
           } catch (error) {
             log.warn({ error }, 'replan failed; keeping current plan');
           }
@@ -419,6 +434,20 @@ export class Agent {
         outcome: record.actionsSummary,
         verifierNotes,
       });
+      this.emit({
+        type: 'step',
+        step,
+        maxSteps,
+        url: observation.url,
+        goal: stepOutput.nextGoal,
+        evaluation: stepOutput.evaluationPreviousGoal,
+        memory: stepOutput.memory,
+        actionsSummary: record.actionsSummary,
+        verifierNotes,
+        ...(observation.screenshot
+          ? { screenshotBase64: observation.screenshot.dataBase64 }
+          : {}),
+      });
 
       if (!outcome.done) continue;
 
@@ -442,6 +471,7 @@ export class Agent {
           `never appeared in any observation: ${grounding.ungrounded.join(', ')}. ` +
           'Locate the real values on the page or report honestly that you could not.';
         log.warn({ ungrounded: grounding.ungrounded }, 'done rejected by grounding check');
+        this.emit({ type: 'rejection', step, reason });
         if (doneRejections >= maxDoneRejections) {
           return this.finish(
             {
@@ -475,6 +505,12 @@ export class Agent {
           ...(lastScreenshot ? { finalScreenshot: lastScreenshot } : {}),
         });
         await trace?.step({ step, judge: verdict });
+        this.emit({
+          type: 'judge',
+          step,
+          verdict: verdict.verdict,
+          ...(verdict.failureReason ? { reason: verdict.failureReason } : {}),
+        });
         if (!verdict.verdict) {
           doneRejections += 1;
           const reason =
@@ -576,6 +612,12 @@ export class Agent {
       ...(trace ? { traceDir: trace.dir } : {}),
     };
     await trace?.result({ ...result, history: undefined });
+    this.emit({
+      type: 'result',
+      success: result.success,
+      result: result.result,
+      stepsTaken: result.stepsTaken,
+    });
     if (task !== undefined && this.options.memoryStore) {
       await this.recordMemory(task, result, trace);
     }
