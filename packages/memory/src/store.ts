@@ -2,7 +2,7 @@ import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createLogger } from '@accura/shared';
-import type { RunRecord, Skill, SkillDraft } from './types.js';
+import type { AgentMemory, RunRecord, Skill, SkillDraft } from './types.js';
 
 const log = createLogger('memory:store');
 
@@ -14,7 +14,7 @@ const RETIRE_THRESHOLD = -3;
  * induction) and skills.json (per-domain verified workflows). Deliberately
  * plain files — inspectable, diffable, no database to operate.
  */
-export class MemoryStore {
+export class MemoryStore implements AgentMemory {
   private skills: Skill[] = [];
   private loaded = false;
 
