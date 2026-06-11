@@ -46,7 +46,8 @@ function parseArgs(argv: string[]): CliArgs {
 
 function usage(): void {
   console.log(
-    `Usage: accura "<task>" [options]\n\n` +
+    `Usage: accura "<task>" [options]\n` +
+      `       accura eval <suite.json> [--profile dev] [--seeds N] [--exclude-tags live]\n\n` +
       `Options:\n` +
       `  --profile <name|path>  Model profile (configs/<name>.json). Default: dev\n` +
       `  --url <url>            Start URL\n` +
@@ -57,7 +58,13 @@ function usage(): void {
 }
 
 async function main(): Promise<number> {
-  const args = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  if (argv[0] === 'eval') {
+    const { evalCommand } = await import('./eval.js');
+    return evalCommand(argv.slice(1));
+  }
+
+  const args = parseArgs(argv);
   if (!args.task) {
     usage();
     return 2;

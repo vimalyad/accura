@@ -1,13 +1,17 @@
 {
-  "name": "@accura/cli",
+  "name": "@accura/evals",
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "bin": {
-    "accura": "./dist/main.js"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "files": [
-    "dist"
+    "dist",
+    "suites"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -19,13 +23,14 @@
     "@accura/actions": "workspace:*",
     "@accura/agent": "workspace:*",
     "@accura/browser": "workspace:*",
-    "@accura/evals": "workspace:*",
     "@accura/llm": "workspace:*",
-    "@accura/shared": "workspace:*"
+    "@accura/shared": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
     "eslint": "^10.4.1",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
   }
 }
