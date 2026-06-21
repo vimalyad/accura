@@ -210,6 +210,11 @@ export class Agent {
     const observationExcerpts: string[] = [];
     let previousObservation: AgentObservation | undefined;
     let previousBatchAllOk = false;
+    // The just-executed step's actions, held until the next observation reveals
+    // whether they actually changed anything (progress is only knowable then).
+    let pendingOutcome:
+      | { url: string; actions: Array<{ name: string; params: unknown; ok: boolean }> }
+      | undefined;
     let pendingRejection: string | undefined;
     let pendingReplanReason: string | undefined;
     let doneRejections = 0;
@@ -279,6 +284,18 @@ export class Agent {
         if (contradiction) {
           verifierNotes.push(contradiction);
           contradictionFlag = true;
+        }
+        // Record the previous step's recovery outcome now that its observable
+        // effect is known. An action that executed "ok" but left the page inert
+        // made no real progress, so it counts as a failure for the loop-breakers
+        // — otherwise a read-only action that keeps reporting success (e.g. an
+        // extract that repeatedly returns NOT_FOUND) never trips them.
+        if (pendingOutcome) {
+          const madeProgress = !diff.inert;
+          for (const a of pendingOutcome.actions) {
+            this.recovery.noteResult(a.name, a.params, a.ok && madeProgress);
+          }
+          this.recovery.noteStep(pendingOutcome.url, madeProgress);
         }
       }
       verifierNotes.push(...this.recovery.advice());
@@ -404,12 +421,20 @@ export class Agent {
         pendingReplanReason = `simulation blocked irreversible action ${simulationBlock.invocation.name}: ${simulationBlock.concern}`;
       }
 
-      for (const executed of outcome.executed) {
-        this.recovery.noteResult(executed.name, executed.params, executed.result.ok);
-      }
       previousBatchAllOk =
         outcome.executed.length > 0 && outcome.executed.every((a) => a.result.ok);
-      this.recovery.noteStep(this.options.session.currentUrl(), previousBatchAllOk);
+      // Defer recording into the recovery policy until the next observation
+      // reveals whether these actions changed anything (resolved in the diff
+      // block above). previousBatchAllOk still feeds this step's contradiction
+      // check, which is computed against the next observation.
+      pendingOutcome = {
+        url: this.options.session.currentUrl(),
+        actions: outcome.executed.map((a) => ({
+          name: a.name,
+          params: a.params,
+          ok: a.result.ok,
+        })),
+      };
       previousObservation = observation;
 
       if (plan && stepOutput.completedPlanItems?.length) {
