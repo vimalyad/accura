@@ -25,6 +25,12 @@ export const ModelSpecSchema = z.object({
   effort: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).optional(),
   vision: z.boolean().default(false),
   coordinateGrounded: z.boolean().default(false),
+  /**
+   * Whether the model exposes a tool/function-calling API. Default true.
+   * Set false for endpoints that reject tools (e.g. Ollama vision models like
+   * qwen2.5vl); structured output then falls back to JSON-in-text prompting.
+   */
+  toolUse: z.boolean().default(true),
 });
 export type ModelSpec = z.infer<typeof ModelSpecSchema>;
 

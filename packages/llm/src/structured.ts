@@ -44,7 +44,7 @@ export async function generateStructured<T>(
       role: 'user',
       content:
         `Your previous output failed validation:\n${lastError}\n` +
-        `Previous output was: ${truncate(JSON.stringify(candidate.value), 2000)}\n` +
+        `Previous output was: ${truncate(JSON.stringify(candidate.value) ?? '(no output)', 2000)}\n` +
         `Respond again with corrected output that satisfies the schema exactly.`,
     });
   }
