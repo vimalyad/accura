@@ -17,6 +17,7 @@ const FORM_PAGE = `
   <input id="name" type="text" placeholder="Name">
   <select id="plan"><option value="f">Free</option><option value="p">Pro</option></select>
   <button id="go" onclick="document.getElementById('out').textContent='clicked:'+document.getElementById('name').value">Go</button>
+  <button id="dbl" ondblclick="document.getElementById('out').textContent='double'">Double</button>
   <a id="away" href="about:blank">Leave</a>
   <div id="out"></div>
 </body></html>`;
@@ -77,6 +78,17 @@ describe('executeBatch (integration)', () => {
     expect(outcome.skipped).toHaveLength(0);
     const out = await session.page.textContent('#out');
     expect(out).toBe('clicked:Ada');
+  });
+
+  it('doubleClick fires a dblclick on the target element', async () => {
+    const dblId = await idOf((t) => t === 'Double');
+    const outcome = await executeBatch(
+      [{ name: 'doubleClick', params: { id: dblId } }],
+      registry,
+      ctx,
+    );
+    expect(outcome.executed[0]?.result.ok).toBe(true);
+    expect(await session.page.textContent('#out')).toBe('double');
   });
 
   it('skips the tail after a page-changing action and reports it', async () => {
