@@ -76,7 +76,10 @@ async function viaForcedTool(
         description:
           options?.toolDescription ?? 'Submit the final result in the required structure.',
         inputSchema: jsonSchema,
-        strict: true,
+        // No strict: true. Anthropic strict mode requires additionalProperties:false
+        // on every object and forbids optional fields — neither of which Zod v4's
+        // z.toJSONSchema emits, and the agent's schemas rely on optional fields.
+        // Correctness is enforced by Zod validation + the repair reprompt above.
       },
     ],
     toolChoice: { name: toolName },
