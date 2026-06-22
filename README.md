@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/accura-icon.svg" width="96" height="96" alt="Accura logo">
+</p>
+
 # Accura
 
 An accuracy-first browser agent. TypeScript, Playwright, model-agnostic —

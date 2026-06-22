@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Accura logo">
+  <defs>
+    <linearGradient id="accura-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#16263F"/>
+    </linearGradient>
+  </defs>
+
+  <!-- app badge -->
+  <rect width="128" height="128" rx="30" fill="url(#accura-bg)"/>
+
+  <!-- reticle ticks -->
+  <g stroke="#34D399" stroke-width="4" stroke-linecap="round">
+    <line x1="64" y1="13" x2="64" y2="29"/>
+    <line x1="64" y1="99" x2="64" y2="115"/>
+    <line x1="13" y1="64" x2="29" y2="64"/>
+    <line x1="99" y1="64" x2="115" y2="64"/>
+  </g>
+
+  <!-- target rings -->
+  <circle cx="64" cy="64" r="40" fill="none" stroke="#22405C" stroke-width="6"/>
+  <circle cx="64" cy="64" r="25" fill="none" stroke="#34D399" stroke-width="6"/>
+
+  <!-- locked-on center -->
+  <circle cx="64" cy="64" r="9" fill="#34D399"/>
+</svg>
