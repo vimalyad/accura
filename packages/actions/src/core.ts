@@ -47,6 +47,27 @@ export const click = defineAction({
   },
 });
 
+export const doubleClick = defineAction({
+  name: 'doubleClick',
+  description:
+    'Double-click an interactive element by its id from the elements list. Use when a single click is not enough, e.g. to select a word, open an item, or enter an edit-in-place field.',
+  params: z.object({ id: z.number().int().describe('Element id from the observation') }),
+  async run(ctx, { id }) {
+    try {
+      const handle = await resolveElement(ctx.session, id);
+      try {
+        await handle.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => undefined);
+        await handle.dblclick({ timeout: 5000 });
+      } finally {
+        await handle.dispose().catch(() => undefined);
+      }
+      return { ok: true, message: `Double-clicked element [${id}]` };
+    } catch (error) {
+      return failure(error);
+    }
+  },
+});
+
 export const input = defineAction({
   name: 'input',
   description:
@@ -317,6 +338,7 @@ export function coreActions(): ActionDefinition[] {
   return [
     navigate,
     click,
+    doubleClick,
     input,
     selectOption,
     scroll,

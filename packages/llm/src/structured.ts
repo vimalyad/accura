@@ -44,7 +44,7 @@ export async function generateStructured<T>(
       role: 'user',
       content:
         `Your previous output failed validation:\n${lastError}\n` +
-        `Previous output was: ${truncate(JSON.stringify(candidate.value), 2000)}\n` +
+        `Previous output was: ${truncate(JSON.stringify(candidate.value) ?? '(no output)', 2000)}\n` +
         `Respond again with corrected output that satisfies the schema exactly.`,
     });
   }
@@ -76,7 +76,10 @@ async function viaForcedTool(
         description:
           options?.toolDescription ?? 'Submit the final result in the required structure.',
         inputSchema: jsonSchema,
-        strict: true,
+        // No strict: true. Anthropic strict mode requires additionalProperties:false
+        // on every object and forbids optional fields — neither of which Zod v4's
+        // z.toJSONSchema emits, and the agent's schemas rely on optional fields.
+        // Correctness is enforced by Zod validation + the repair reprompt above.
       },
     ],
     toolChoice: { name: toolName },

@@ -27,7 +27,7 @@ export class AnthropicModel implements ChatModel {
     this.id = spec.model;
     this.caps = {
       vision: spec.vision,
-      toolUse: true,
+      toolUse: spec.toolUse,
       structured: true,
       coordinateGrounded: spec.coordinateGrounded,
     };

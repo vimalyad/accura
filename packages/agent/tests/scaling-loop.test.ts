@@ -240,4 +240,63 @@ describe('planner + simulation in the loop (integration)', () => {
     expect(result.success).toBe(false);
     expect(result.result).toContain('blocked');
   });
+
+  it('breaks a successful-but-inert action loop (no-progress repeats are forbidden)', async () => {
+    const registry = buildCoreRegistry();
+    registry.register(
+      defineAction({
+        name: 'peek',
+        description: 'Read-only probe that reports success but never changes the page',
+        params: z.object({ q: z.string() }),
+        async run() {
+          return { ok: true, message: 'nothing found' };
+        },
+      }),
+    );
+
+    let sawBreaker = false;
+    let peekCount = 0;
+    const executor: ChatModel = {
+      id: 'exec',
+      spec,
+      caps: { vision: false, toolUse: true, structured: true, coordinateGrounded: false },
+      async generate(request) {
+        const text = lastText(request);
+        // The fix: a repeated action that always reports ok but leaves the page
+        // inert must still surface FORBIDDEN/STUCK. Before the fix it never did,
+        // and this loop ran to the step budget.
+        if (text.includes('FORBIDDEN') || text.includes('STUCK')) {
+          sawBreaker = true;
+          return toolResponse('agent_step', {
+            evaluationPreviousGoal: 'failure',
+            memory: 'the probe never changes anything',
+            nextGoal: 'abandon the loop',
+            actions: [
+              { name: 'done', params: { success: false, result: 'changed strategy after no-progress loop' } },
+            ],
+          });
+        }
+        peekCount += 1;
+        return toolResponse('agent_step', {
+          evaluationPreviousGoal: 'success',
+          memory: '',
+          nextGoal: 'probe again',
+          actions: [{ name: 'peek', params: { q: 'main_heading' } }],
+        });
+      },
+    };
+
+    const agent = new Agent({
+      session,
+      registry,
+      executorModel: executor,
+      maxSteps: 10,
+      startUrl: PAGE,
+    });
+    const result = await agent.run('Find something via the probe');
+
+    expect(sawBreaker).toBe(true); // loop-breaker fired despite every action reporting ok
+    expect(peekCount).toBeLessThan(10); // did not silently exhaust the step budget
+    expect(result.success).toBe(false);
+  });
 });

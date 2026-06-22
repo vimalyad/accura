@@ -1,0 +1,16 @@
+{
+  "name": "shadcn-only",
+  "tasks": [
+    {
+      "id": "shadcn-form",
+      "instruction": "Fill in the form: set the Name field to Ada Lovelace and the Description field to 'Mathematician and first programmer', then submit. Report the confirmation message shown after submitting.",
+      "startUrl": "fixture:/shadcn-form",
+      "maxSteps": 10,
+      "tags": ["fixture", "assignment"],
+      "groundTruth": {
+        "mustContain": ["Ada Lovelace", "Mathematician and first programmer"],
+        "successExpected": true
+      }
+    }
+  ]
+}

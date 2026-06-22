@@ -46,6 +46,60 @@ const PAGES: Record<string, string> = {
   <p>Founded in 2019 in Pune.</p>
   <a href="/nav">Home</a>
 </body></html>`,
+  // A shadcn/react-hook-form style form: Name input + Description textarea with
+  // client-side validation, mirroring https://ui.shadcn.com/docs/forms/react-hook-form
+  // but deterministic and offline so the agent demo never depends on the live web.
+  '/shadcn-form': `
+<html><head><title>React Hook Form</title>
+<style>
+  body { font: 15px ui-sans-serif, system-ui; max-width: 560px; margin: 48px auto; color: #0a0a0a; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+  label { font-weight: 600; }
+  .desc { color: #71717a; font-size: 13px; }
+  input, textarea { border: 1px solid #e4e4e7; border-radius: 8px; padding: 8px 12px; font: inherit; }
+  textarea { min-height: 90px; }
+  button { background: #18181b; color: #fafafa; border: 0; border-radius: 8px; padding: 9px 16px; font: inherit; cursor: pointer; }
+  .error { color: #dc2626; font-size: 13px; display: none; }
+  [data-invalid] input, [data-invalid] textarea { border-color: #dc2626; }
+</style></head><body>
+  <h1>Create profile</h1>
+  <form id="f" novalidate>
+    <div class="field" id="name-field">
+      <label for="name">Name</label>
+      <input id="name" name="name" type="text" placeholder="Your name" aria-invalid="false">
+      <span class="error" id="name-error">Name is required.</span>
+    </div>
+    <div class="field" id="description-field">
+      <label for="description">Description</label>
+      <textarea id="description" name="description" placeholder="Tell us about yourself" aria-invalid="false"></textarea>
+      <span class="desc">A short bio shown on your public profile.</span>
+      <span class="error" id="description-error">Description is required.</span>
+    </div>
+    <button type="submit">Submit</button>
+  </form>
+  <script>
+    document.getElementById('f').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const description = document.getElementById('description').value.trim();
+      let valid = true;
+      for (const [id, value] of [['name', name], ['description', description]]) {
+        const field = document.getElementById(id + '-field');
+        const input = document.getElementById(id);
+        const ok = value.length > 0;
+        valid = valid && ok;
+        input.setAttribute('aria-invalid', ok ? 'false' : 'true');
+        if (ok) field.removeAttribute('data-invalid'); else field.setAttribute('data-invalid', 'true');
+        document.getElementById(id + '-error').style.display = ok ? 'none' : 'block';
+      }
+      if (!valid) return;
+      const msg = document.createElement('div');
+      msg.id = 'msg';
+      msg.textContent = 'Profile saved for ' + name + ' — ' + description;
+      document.body.appendChild(msg);
+    });
+  </script>
+</body></html>`,
 };
 
 export interface FixtureServer {
