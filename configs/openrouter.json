@@ -1,0 +1,39 @@
+{
+  "name": "openrouter",
+  "roles": {
+    "executor": {
+      "provider": "openai-compatible",
+      "model": "google/gemma-4-26b-a4b-it:free",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "vision": true,
+      "toolUse": false,
+      "maxTokens": 4096,
+      "temperature": 0
+    },
+    "planner": {
+      "provider": "openai-compatible",
+      "model": "meta-llama/llama-3.3-70b-instruct:free",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "maxTokens": 4096,
+      "temperature": 0
+    },
+    "judge": {
+      "provider": "openai-compatible",
+      "model": "google/gemma-4-26b-a4b-it:free",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "vision": true,
+      "maxTokens": 4096,
+      "temperature": 0
+    }
+  },
+  "browser": {
+    "headless": true,
+    "viewportWidth": 1280,
+    "viewportHeight": 800,
+    "navigationTimeoutMs": 30000
+  },
+  "maxSteps": 40
+}
