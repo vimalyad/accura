@@ -23,7 +23,7 @@ Multi-user mode is automatic: with `DATABASE_URL` set (compose does this),
 run history and the shared skill memory live in Postgres with
 concurrent-writer-safe updates, and the console's history survives restarts.
 Model keys pass through from your shell: `ANTHROPIC_API_KEY`, `GROQ_API_KEY`,
-`GEMINI_API_KEY`.
+`GEMINI_API_KEY`, `OPENROUTER_API_KEY`.
 
 ## Quickstart (local, single-user)
 
@@ -39,11 +39,12 @@ node apps/cli/dist/main.js "Find the price of the Super Widget" --url https://ex
 node apps/cli/dist/main.js eval packages/evals/suites/fixtures.json --profile dev --seeds 3
 ```
 
-Profiles live in `configs/`. `dev.json` targets free models (Ollama
-`qwen2.5vl`, Groq, Gemini free tier); `final.json` targets Claude
-(Sonnet 4.6 executor with adaptive thinking, Opus 4.8 planner/judge) and
-needs `ANTHROPIC_API_KEY`. Same code, same prompts — the profile is the
-only difference.
+Profiles live in `configs/`. `dev.json` and `dev-cloud.json` target free/local
+models (Ollama `qwen2.5vl` for vision, Groq and Gemini free tiers for
+planner/judge); `openrouter.json` routes every role through a single
+`OPENROUTER_API_KEY`; `final.json` targets Claude (Sonnet 4.6 executor with
+adaptive thinking, Opus 4.8 planner/judge) and needs `ANTHROPIC_API_KEY`. Same
+code, same prompts — the profile is the only difference.
 
 ## Architecture
 
@@ -63,7 +64,7 @@ flowchart TD
 
     subgraph capabilities["Capabilities"]
         PERCEPTION["@accura/perception<br/>DOM walker · stable element ids ·<br/>new-element diff · observer"]
-        ACTIONS["@accura/actions<br/>zod registry · 16 core actions ·<br/>batching with stale-DOM guards"]
+        ACTIONS["@accura/actions<br/>zod registry · 17 core actions ·<br/>batching with stale-DOM guards"]
         VERIFY["@accura/verify<br/>state diff · grounding check ·<br/>trajectory judge"]
         MEMORY["@accura/memory<br/>skill store · induction ·<br/>deterministic replay"]
         LLM["@accura/llm<br/>anthropic + openai-compatible ·<br/>structured output · model router"]
@@ -196,7 +197,7 @@ judge-agreement tracking) — no accuracy claim without numbers.
 | `@accura/llm` | Provider-agnostic ChatModel (Anthropic SDK + any OpenAI-compatible endpoint), structured output with repair reprompts, role-based model router |
 | `@accura/browser` | Playwright session: stability gate, exact-dimension screenshots, popup/dialog/download/crash watchdogs, CDP escape hatch |
 | `@accura/perception` | In-page walker → enumerated interactive elements with stable ids, new-element diffing, id→element resolution |
-| `@accura/actions` | Zod-validated action registry, 16 core actions, multi-action batching with stale-DOM guards |
+| `@accura/actions` | Zod-validated action registry, 17 core actions (incl. `doubleClick`), multi-action batching with stale-DOM guards |
 | `@accura/verify` | State-diff step verifier, deterministic data-grounding check, skeptical trajectory judge |
 | `@accura/agent` | The loop: planner, best-of-N arbiter, simulation gate, recovery policy, done gating, JSONL traces |
 | `@accura/memory` | Cross-run skills: induction from verified successes, deterministic replay with live fallback, scoring/retirement |
