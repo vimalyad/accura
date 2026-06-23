@@ -5,7 +5,8 @@
 # Accura
 
 An accuracy-first browser agent. TypeScript, Playwright, model-agnostic —
-develop on free models, run on Claude.
+runs on Claude or any OpenAI-compatible API (OpenRouter, …) via external API
+calls.
 
 Accura optimizes one metric: **task success rate**. Latency is explicitly not
 a constraint, so the architecture spends time wherever it buys correctness:
@@ -13,42 +14,33 @@ it re-observes after every action, verifies every step, samples multiple
 candidates at uncertain decisions, simulates irreversible actions before
 running them, and refuses to declare success it cannot prove.
 
-## Quickstart (Docker — recommended)
-
-The complete stack — API server, web console, the agent's chromium, and
-Postgres — runs in containers:
-
-```sh
-docker compose up --build
-# console at http://localhost:7700  ·  Postgres at localhost:5434
-```
-
-Multi-user mode is automatic: with `DATABASE_URL` set (compose does this),
-run history and the shared skill memory live in Postgres with
-concurrent-writer-safe updates, and the console's history survives restarts.
-Model keys pass through from your shell: `ANTHROPIC_API_KEY`, `GROQ_API_KEY`,
-`GEMINI_API_KEY`, `OPENROUTER_API_KEY`.
-
-## Quickstart (local, single-user)
+## Quickstart
 
 ```sh
 pnpm install
 pnpm --filter @accura/browser exec playwright install chromium
 pnpm build
 
-# run a task (dev profile: local/free models)
-node apps/cli/dist/main.js "Find the price of the Super Widget" --url https://example.com --profile dev
+# run a task on Claude (needs ANTHROPIC_API_KEY)
+node apps/cli/dist/main.js "Find the price of the Super Widget" --url https://example.com --profile final
 
 # run the eval suite
-node apps/cli/dist/main.js eval packages/evals/suites/fixtures.json --profile dev --seeds 3
+node apps/cli/dist/main.js eval packages/evals/suites/fixtures.json --profile final --seeds 3
 ```
 
-Profiles live in `configs/`. `dev.json` and `dev-cloud.json` target free/local
-models (Ollama `qwen2.5vl` for vision, Groq and Gemini free tiers for
-planner/judge); `openrouter.json` routes every role through a single
-`OPENROUTER_API_KEY`; `final.json` targets Claude (Sonnet 4.6 executor with
-adaptive thinking, Opus 4.8 planner/judge) and needs `ANTHROPIC_API_KEY`. Same
-code, same prompts — the profile is the only difference.
+Model keys come from your shell, or a local `.env` loaded with
+`node --env-file=.env …`. Profiles live in `configs/` — **every role is an
+external API call; no local model hosting**:
+
+- **`final.json`** — Claude (Sonnet 4.6 executor with adaptive thinking, Opus 4.8
+  planner/judge). Needs `ANTHROPIC_API_KEY`.
+- **`openrouter.json`** — every role through a single `OPENROUTER_API_KEY`.
+
+Same code, same prompts — the profile is the only difference.
+
+> Running your own models locally (Ollama) and the full self-hosted platform —
+> API server, web console, and Postgres — live on the
+> [`self-hosted`](https://github.com/vimalyad/accura/tree/self-hosted) branch.
 
 ## Architecture
 
@@ -144,10 +136,9 @@ flowchart LR
         S[skill-inductor]
     end
 
-    subgraph dev["configs/dev.json — free"]
-        QWEN["Ollama qwen2.5vl"]
-        LLAMA["Groq Llama 3.3 70B"]
-        GEMINI["Gemini 2.5 Flash"]
+    subgraph openrouter["configs/openrouter.json — one key"]
+        GEMMA["Gemma (vision)"]
+        LLAMA["Llama 3.3 70B"]
     end
 
     subgraph final["configs/final.json — Claude"]
@@ -155,9 +146,9 @@ flowchart LR
         OPUS["Opus 4.8"]
     end
 
-    E -.-> QWEN
+    E -.-> GEMMA
     P -.-> LLAMA
-    J -.-> GEMINI
+    J -.-> GEMMA
     E ==> SONNET
     X ==> SONNET
     S ==> SONNET
@@ -206,19 +197,13 @@ judge-agreement tracking) — no accuracy claim without numbers.
 | `@accura/agent` | The loop: planner, best-of-N arbiter, simulation gate, recovery policy, done gating, JSONL traces |
 | `@accura/memory` | Cross-run skills: induction from verified successes, deterministic replay with live fallback, scoring/retirement |
 | `@accura/evals` | Task suites, multi-seed runner, bootstrap CIs, judge-agreement harness, failure clustering |
-| `@accura/store` | Postgres persistence: run history + event log, shared skill memory with concurrent-writer-safe scoring |
-| `apps/server` | Fastify API: run queue, SSE live streaming, Postgres hydration, serves the console |
-| `apps/web` | The console UI: submit tasks, watch runs live, browse history |
 | `apps/cli` | `accura "<task>"` and `accura eval <suite>` |
 
 ## Status
 
-All 8 build phases are implemented and tested (~120 tests, including
-browser-integration tests against real Chromium and full-pipeline e2e runs
-with scripted oracle models). Pending items that require live model access:
-
-- dev-profile baseline numbers (`packages/evals/REPORTS/README.md`)
-- final-profile benchmark on Claude (`--profile final`, needs `ANTHROPIC_API_KEY`)
+The agent and CLI are implemented and tested — unit tests plus
+browser-integration tests against real Chromium and full-pipeline end-to-end
+runs. Verified end-to-end on the `final` (Claude) profile.
 
 ## Development
 

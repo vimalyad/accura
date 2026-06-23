@@ -1,7 +1,15 @@
 # Accura — Accuracy-First Browser Agent Architecture
 
 **Stack:** TypeScript · pnpm + Turborepo monorepo · Playwright
-**Optimization target:** Task success rate. Latency is explicitly NOT a constraint. Token cost matters only in dev (free models) — final runs use Anthropic Claude.
+**Optimization target:** Task success rate. Latency is explicitly NOT a constraint.
+
+> **Scope of `main`:** this branch is the agent + CLI, running purely on external
+> API calls (Claude via `final.json`, or any OpenAI-compatible API via
+> `openrouter.json`). The self-hosted platform described in some sections below —
+> the API server (`apps/server`), web console (`apps/web`), Postgres store
+> (`@accura/store`) — and the local-model profiles (`dev.json` / `dev-cloud.json`,
+> Ollama) live on the [`self-hosted`](https://github.com/vimalyad/accura/tree/self-hosted)
+> branch. The design rationale is kept here in full for reference.
 
 ---
 
