@@ -8,7 +8,7 @@ import { loadProfile, parseProfile, resolveModelSpec } from '../src/config.js';
 const minimalProfile = {
   name: 'test',
   roles: {
-    executor: { provider: 'openai-compatible', model: 'qwen2.5-vl' },
+    executor: { provider: 'openai-compatible', model: 'demo-executor' },
   },
 };
 
@@ -55,7 +55,7 @@ describe('resolveModelSpec', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(resolveModelSpec(result.value, 'judge').model).toBe('claude-opus-4-8');
-    expect(resolveModelSpec(result.value, 'planner').model).toBe('qwen2.5-vl');
+    expect(resolveModelSpec(result.value, 'planner').model).toBe('demo-executor');
   });
 });
 
