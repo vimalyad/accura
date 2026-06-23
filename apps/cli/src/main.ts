@@ -17,13 +17,13 @@ interface CliArgs {
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { task: '', profile: 'dev', headed: false };
+  const args: CliArgs = { task: '', profile: 'final', headed: false };
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]!;
     switch (arg) {
       case '--profile':
-        args.profile = argv[++i] ?? 'dev';
+        args.profile = argv[++i] ?? 'final';
         break;
       case '--url':
         args.url = argv[++i];
@@ -50,7 +50,7 @@ function usage(): void {
     `Usage: accura "<task>" [options]\n` +
       `       accura eval <suite.json> [--profile dev] [--seeds N] [--exclude-tags live]\n\n` +
       `Options:\n` +
-      `  --profile <name|path>  Model profile (configs/<name>.json). Default: dev\n` +
+      `  --profile <name|path>  Model profile (configs/<name>.json). Default: final\n` +
       `  --url <url>            Start URL\n` +
       `  --max-steps <n>        Override profile step budget\n` +
       `  --no-vision            Disable screenshots even for vision models\n` +

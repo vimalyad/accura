@@ -21,7 +21,7 @@ export interface EvalArgs {
 export function parseEvalArgs(argv: string[]): EvalArgs | undefined {
   const args: EvalArgs = {
     suitePath: '',
-    profile: 'dev',
+    profile: 'final',
     seeds: 1,
     excludeTags: [],
     outDir: 'eval-reports',
@@ -31,7 +31,7 @@ export function parseEvalArgs(argv: string[]): EvalArgs | undefined {
     const arg = argv[i]!;
     switch (arg) {
       case '--profile':
-        args.profile = argv[++i] ?? 'dev';
+        args.profile = argv[++i] ?? 'final';
         break;
       case '--seeds':
         args.seeds = Number(argv[++i] ?? 1);
@@ -54,7 +54,7 @@ export async function evalCommand(argv: string[]): Promise<number> {
   const args = parseEvalArgs(argv);
   if (!args) {
     console.log(
-      'Usage: accura eval <suite.json> [--profile dev] [--seeds N] [--exclude-tags live] [--out dir]',
+      'Usage: accura eval <suite.json> [--profile final] [--seeds N] [--exclude-tags live] [--out dir]',
     );
     return 2;
   }

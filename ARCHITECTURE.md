@@ -3,9 +3,9 @@
 **Stack:** TypeScript · pnpm + Turborepo monorepo · Playwright
 **Optimization target:** Task success rate. Latency is explicitly NOT a constraint.
 
-> **Scope:** `main` is the agent + CLI, running purely on external API calls —
-> Claude via `final.json`, or any OpenAI-compatible API via `openrouter.json`.
-> The full self-hosted platform and local-model profiles live on the
+> **Scope:** `main` is the agent + CLI, running on Claude via external API calls
+> (the `final` profile, `configs/final.json`). The full self-hosted platform and
+> local-model profiles live on the
 > [`self-hosted`](https://github.com/vimalyad/accura/tree/self-hosted) branch.
 
 ---
@@ -47,8 +47,8 @@ accura/
 │   ├── memory/          # trajectory store, skill induction, skill replay w/ self-heal
 │   └── evals/           # task suites, runner, LLM judge, regression tracking
 ├── apps/
-│   └── cli/             # `accura run "task..." --profile final|openrouter`
-└── configs/             # model profiles: final.json (Claude), openrouter.json
+│   └── cli/             # `accura run "task..." --profile final`
+└── configs/             # model profile: final.json (Claude)
 ```
 
 Tooling: pnpm workspaces, Turborepo for build/test pipelines, tsup or tsc builds, Vitest, Zod everywhere as the single schema source (LLM tool schemas are generated from Zod via `zod-to-json-schema`).
@@ -72,11 +72,10 @@ interface ChatModel {
 }
 ```
 
-- **Providers:** `anthropic` (the `final` profile), `openai-compatible` (OpenRouter, Groq, Gemini's OpenAI endpoint, or any OpenAI-compatible API — one adapter).
+- **Providers:** `anthropic` (the `final` profile). A generic `openai-compatible` adapter is also present (any OpenAI-compatible endpoint).
 - **Structured output strategy:** tool-calling with a JSON schema where supported; fallback = JSON-in-text prompting + Zod parse + one repair-reprompt on validation failure. The agent NEVER consumes unvalidated model text.
 - **Model router:** roles → models, from a profile file. Roles: `planner`, `executor`, `judge`, `extractor`, `skill-inductor`.
-  - `configs/openrouter.json`: every role through a single OpenRouter key (e.g. a Gemma vision executor, a Llama planner); judge ≠ executor where possible — judges are gameable by their own model family.
-  - `configs/final.json`: executor = `claude-sonnet-4-6` (Anthropic's own guidance: Sonnet 4.6 is the most mechanically precise at UI interaction), planner/judge = `claude-opus-4-8`, extractor = Sonnet.
+  - `configs/final.json`: executor = `claude-sonnet-4-6` (Anthropic's own guidance: Sonnet 4.6 is the most mechanically precise at UI interaction), planner/judge = `claude-opus-4-8`, extractor = Sonnet. Judge ≠ executor tier (Opus judges the Sonnet executor) — a model is gameable by its own family.
 - **Capability degradation:** if `caps.vision=false`, perception runs DOM-only and the vision verifier is skipped — the same codepath, fewer signals. This is what makes "a cheaper external model for development, Claude for the final run" a config change, not a code change.
 - Retries with exponential backoff, request/response logging into the trace.
 
@@ -208,20 +207,20 @@ Two layers, both separate model calls from the executor:
 
 ---
 
-## 5. Profiles (external APIs only)
+## 5. Profile (`final.json`, external API)
 
-| Role | openrouter.json (one key) | final.json (Anthropic) |
-|---|---|---|
-| Executor | a vision model via OpenRouter | Claude Sonnet 4.6 (adaptive thinking, effort high) |
-| Planner | a text model via OpenRouter | Claude Opus |
-| Judge | a separate model (judge ≠ executor where possible) | Claude Opus (skeptical prompt) |
-| Extractor | falls back to executor | Claude Sonnet |
-| Vision | on if the model supports it, else DOM-only | on; coordinate fallback enabled; exact-dimension screenshots |
+Every role is an external Anthropic API call — no local model hosting:
 
-Same code, same prompts, same evals — the profile is the only difference. Every
-role is an external API call; no local model hosting. A cheaper profile will
-score lower; that's fine, it exercises the *machinery* (grounding, verification,
-recovery, replay), and the eval suite tells you how much headroom the Claude run gains.
+| Role | Model |
+|---|---|
+| Executor | Claude Sonnet 4.6 (adaptive thinking, effort high) |
+| Planner | Claude Opus 4.8 |
+| Judge | Claude Opus 4.8 (skeptical prompt) |
+| Extractor | Claude Sonnet 4.6 |
+| Vision | on; coordinate fallback enabled; exact-dimension screenshots |
+
+Same code, same prompts, same evals — the model is selected by the profile, so
+swapping models never touches the loop.
 
 ---
 

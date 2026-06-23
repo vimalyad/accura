@@ -33,8 +33,7 @@ export interface OpenAiCompatibleOptions {
 }
 
 /**
- * Provider for any OpenAI-compatible chat-completions endpoint:
- * Groq, OpenRouter, Gemini's OpenAI endpoint, or any OpenAI-compatible API.
+ * Provider for any OpenAI-compatible chat-completions endpoint.
  */
 export class OpenAiCompatibleModel implements ChatModel {
   readonly id: string;

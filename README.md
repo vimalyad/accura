@@ -4,9 +4,8 @@
 
 # Accura
 
-An accuracy-first browser agent. TypeScript, Playwright, model-agnostic —
-runs on Claude or any OpenAI-compatible API (OpenRouter, …) via external API
-calls.
+An accuracy-first browser agent. TypeScript, Playwright — runs on Claude
+(Anthropic) via external API calls.
 
 Accura optimizes one metric: **task success rate**. Latency is explicitly not
 a constraint, so the architecture spends time wherever it buys correctness:
@@ -29,14 +28,10 @@ node apps/cli/dist/main.js eval packages/evals/suites/fixtures.json --profile fi
 ```
 
 Model keys come from your shell, or a local `.env` loaded with
-`node --env-file=.env …`. Profiles live in `configs/` — **every role is an
-external API call; no local model hosting**:
-
-- **`final.json`** — Claude (Sonnet 4.6 executor with adaptive thinking, Opus 4.8
-  planner/judge). Needs `ANTHROPIC_API_KEY`.
-- **`openrouter.json`** — every role through a single `OPENROUTER_API_KEY`.
-
-Same code, same prompts — the profile is the only difference.
+`node --env-file=.env …`. The shipped profile is `configs/final.json` — **Claude
+via external API calls, no local model hosting**: a Sonnet 4.6 executor (adaptive
+thinking), an Opus 4.8 planner and judge, and a Sonnet 4.6 extractor. Needs
+`ANTHROPIC_API_KEY`.
 
 > The full self-hosted platform and local-model profiles live on the
 > [`self-hosted`](https://github.com/vimalyad/accura/tree/self-hosted) branch.
@@ -135,19 +130,11 @@ flowchart LR
         S[skill-inductor]
     end
 
-    subgraph openrouter["configs/openrouter.json — one key"]
-        GEMMA["Gemma (vision)"]
-        LLAMA["Llama 3.3 70B"]
-    end
-
     subgraph final["configs/final.json — Claude"]
         SONNET["Sonnet 4.6<br/>adaptive thinking · effort high ·<br/>clickAt enabled"]
         OPUS["Opus 4.8"]
     end
 
-    E -.-> GEMMA
-    P -.-> LLAMA
-    J -.-> GEMMA
     E ==> SONNET
     X ==> SONNET
     S ==> SONNET
