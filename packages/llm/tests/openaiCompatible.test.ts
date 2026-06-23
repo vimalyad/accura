@@ -5,7 +5,7 @@ import { OpenAiCompatibleModel } from '../src/providers/openaiCompatible.js';
 const spec = ModelSpecSchema.parse({
   provider: 'openai-compatible',
   model: 'test-model',
-  baseUrl: 'http://localhost:11434/v1',
+  baseUrl: 'https://api.example.test/v1',
   temperature: 0,
   vision: true,
 });
@@ -34,7 +34,7 @@ describe('OpenAiCompatibleModel', () => {
     });
 
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('http://localhost:11434/v1/chat/completions');
+    expect(url).toBe('https://api.example.test/v1/chat/completions');
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe('test-model');
     expect(body.max_tokens).toBe(123);
@@ -130,7 +130,7 @@ describe('OpenAiCompatibleModel', () => {
     const noTempSpec = ModelSpecSchema.parse({
       provider: 'openai-compatible',
       model: 'test-model',
-      baseUrl: 'http://localhost:11434/v1',
+      baseUrl: 'https://api.example.test/v1',
     });
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(okBody));
     const model = new OpenAiCompatibleModel(noTempSpec, { fetchImpl });

@@ -9,7 +9,7 @@ export type ModelRole = (typeof MODEL_ROLES)[number];
 export const ModelSpecSchema = z.object({
   provider: z.enum(['anthropic', 'openai-compatible']),
   model: z.string().min(1),
-  /** Required for openai-compatible providers (Ollama, Groq, OpenRouter, ...). */
+  /** Required for openai-compatible providers (OpenRouter, Groq, ...). */
   baseUrl: z.url().optional(),
   /** Name of the environment variable holding the API key. Never the key itself. */
   apiKeyEnv: z.string().min(1).optional(),
@@ -27,8 +27,8 @@ export const ModelSpecSchema = z.object({
   coordinateGrounded: z.boolean().default(false),
   /**
    * Whether the model exposes a tool/function-calling API. Default true.
-   * Set false for endpoints that reject tools (e.g. Ollama vision models like
-   * qwen2.5vl); structured output then falls back to JSON-in-text prompting.
+   * Set false for endpoints that reject tools (some vision models); structured
+   * output then falls back to JSON-in-text prompting.
    */
   toolUse: z.boolean().default(true),
 });

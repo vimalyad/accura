@@ -38,8 +38,7 @@ external API call; no local model hosting**:
 
 Same code, same prompts — the profile is the only difference.
 
-> Running your own models locally (Ollama) and the full self-hosted platform —
-> API server, web console, and Postgres — live on the
+> The full self-hosted platform and local-model profiles live on the
 > [`self-hosted`](https://github.com/vimalyad/accura/tree/self-hosted) branch.
 
 ## Architecture

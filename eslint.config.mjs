@@ -9,9 +9,6 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/.turbo/**',
       '**/coverage/**',
-      // standalone node verification scripts, run manually
-      'apps/server/console-check.mjs',
-      'apps/server/auth-check.mjs',
     ],
   },
   js.configs.recommended,

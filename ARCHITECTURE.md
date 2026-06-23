@@ -3,13 +3,10 @@
 **Stack:** TypeScript · pnpm + Turborepo monorepo · Playwright
 **Optimization target:** Task success rate. Latency is explicitly NOT a constraint.
 
-> **Scope of `main`:** this branch is the agent + CLI, running purely on external
-> API calls (Claude via `final.json`, or any OpenAI-compatible API via
-> `openrouter.json`). The self-hosted platform described in some sections below —
-> the API server (`apps/server`), web console (`apps/web`), Postgres store
-> (`@accura/store`) — and the local-model profiles (`dev.json` / `dev-cloud.json`,
-> Ollama) live on the [`self-hosted`](https://github.com/vimalyad/accura/tree/self-hosted)
-> branch. The design rationale is kept here in full for reference.
+> **Scope:** `main` is the agent + CLI, running purely on external API calls —
+> Claude via `final.json`, or any OpenAI-compatible API via `openrouter.json`.
+> The full self-hosted platform and local-model profiles live on the
+> [`self-hosted`](https://github.com/vimalyad/accura/tree/self-hosted) branch.
 
 ---
 
@@ -50,9 +47,8 @@ accura/
 │   ├── memory/          # trajectory store, skill induction, skill replay w/ self-heal
 │   └── evals/           # task suites, runner, LLM judge, regression tracking
 ├── apps/
-│   ├── cli/             # `accura run "task..." --profile dev|final`
-│   └── trace-viewer/    # (later) step-by-step trajectory replay UI
-└── configs/             # model profiles: dev.json (free models), final.json (Claude)
+│   └── cli/             # `accura run "task..." --profile final|openrouter`
+└── configs/             # model profiles: final.json (Claude), openrouter.json
 ```
 
 Tooling: pnpm workspaces, Turborepo for build/test pipelines, tsup or tsc builds, Vitest, Zod everywhere as the single schema source (LLM tool schemas are generated from Zod via `zod-to-json-schema`).
@@ -76,12 +72,12 @@ interface ChatModel {
 }
 ```
 
-- **Providers:** `anthropic` (final runs), `openai-compatible` (covers Ollama, Groq, OpenRouter free tier, Gemini via OpenAI endpoint — one adapter handles all free dev models).
-- **Structured output strategy:** tool-calling with `strict` JSON schema where supported; constrained-decode via Ollama `format`; fallback = JSON-mode + Zod parse + one repair-reprompt on validation failure. The agent NEVER consumes unvalidated model text.
+- **Providers:** `anthropic` (the `final` profile), `openai-compatible` (OpenRouter, Groq, Gemini's OpenAI endpoint, or any OpenAI-compatible API — one adapter).
+- **Structured output strategy:** tool-calling with a JSON schema where supported; fallback = JSON-in-text prompting + Zod parse + one repair-reprompt on validation failure. The agent NEVER consumes unvalidated model text.
 - **Model router:** roles → models, from a profile file. Roles: `planner`, `executor`, `judge`, `extractor`, `skill-inductor`.
-  - `configs/dev.json`: e.g. executor = `qwen2.5-vl` (Ollama) or Gemini Flash free tier; judge = a *different* free model (judge ≠ actor matters — judges are gameable by their own model family).
-  - `configs/final.json`: executor = `claude-sonnet-4-6` (Anthropic's own guidance: Sonnet 4.6 is the most mechanically precise at UI interaction), planner/judge = `claude-opus-4-x`, extractor = Sonnet.
-- **Capability degradation:** if `caps.vision=false` (some free models), perception runs DOM-only and the vision verifier is skipped — the same codepath, fewer signals. This is what makes "free models in dev, Claude at the end" a config change, not a code change.
+  - `configs/openrouter.json`: every role through a single OpenRouter key (e.g. a Gemma vision executor, a Llama planner); judge ≠ executor where possible — judges are gameable by their own model family.
+  - `configs/final.json`: executor = `claude-sonnet-4-6` (Anthropic's own guidance: Sonnet 4.6 is the most mechanically precise at UI interaction), planner/judge = `claude-opus-4-8`, extractor = Sonnet.
+- **Capability degradation:** if `caps.vision=false`, perception runs DOM-only and the vision verifier is skipped — the same codepath, fewer signals. This is what makes "a cheaper external model for development, Claude for the final run" a config change, not a code change.
 - Retries with exponential backoff, request/response logging into the trace.
 
 ### 3.2 `@accura/browser` — Playwright harness
@@ -183,7 +179,7 @@ Two layers, both separate model calls from the executor:
 
 - Task suites as data: start with a 20–30 task custom suite over stable public sites + a WebVoyager/Online-Mind2Web subset later. Each task: instruction, optional ground truth, max steps.
 - Runner executes N seeds per task per config, stores trajectories, applies the trajectory judge + optional ground-truth check; outputs success rate with bootstrap error bars.
-- **Regression gate in CI (Turborepo task):** PRs to perception/prompts/actions run the eval suite on the dev profile. Accuracy work without regression evals is guesswork — browser-use's single biggest infra lesson.
+- **Regression gate in CI (Turborepo task):** PRs to perception/prompts/actions run the fixture eval suite. Accuracy work without regression evals is guesswork — browser-use's single biggest lesson.
 - Failure mining: failed-run `failureReason`s clustered weekly by a model into actionable buckets.
 
 ---
@@ -212,17 +208,20 @@ Two layers, both separate model calls from the executor:
 
 ---
 
-## 5. Dev (free) vs final (Claude) profiles
+## 5. Profiles (external APIs only)
 
-| Role | dev.json (free) | final.json (Anthropic) |
+| Role | openrouter.json (one key) | final.json (Anthropic) |
 |---|---|---|
-| Executor | Qwen2.5-VL 32B/72B via Ollama, or Gemini Flash free tier | Claude Sonnet 4.6 (adaptive thinking, effort high) |
-| Planner | Llama 3.3 70B (Groq free) / Gemini Flash | Claude Opus |
-| Judge | different family than executor | Claude Opus (skeptical prompt) |
-| Extractor | any free JSON-mode model | Claude Sonnet |
-| Vision | on if model supports, else DOM-only | on; coordinate fallback enabled; exact-dimension screenshots |
+| Executor | a vision model via OpenRouter | Claude Sonnet 4.6 (adaptive thinking, effort high) |
+| Planner | a text model via OpenRouter | Claude Opus |
+| Judge | a separate model (judge ≠ executor where possible) | Claude Opus (skeptical prompt) |
+| Extractor | falls back to executor | Claude Sonnet |
+| Vision | on if the model supports it, else DOM-only | on; coordinate fallback enabled; exact-dimension screenshots |
 
-Same code, same prompts, same evals — the profile is the only difference. Free-model runs will score lower; that's fine, they exercise the *machinery* (grounding, verification, recovery, replay), and the eval suite tells you exactly how much headroom the final Claude run gains.
+Same code, same prompts, same evals — the profile is the only difference. Every
+role is an external API call; no local model hosting. A cheaper profile will
+score lower; that's fine, it exercises the *machinery* (grounding, verification,
+recovery, replay), and the eval suite tells you how much headroom the Claude run gains.
 
 ---
 
@@ -241,6 +240,6 @@ Same code, same prompts, same evals — the profile is the only difference. Free
 ## 7. Key risks & mitigations
 
 - **Playwright vs CDP:** browser-use and Stagehand both left Playwright (frame routing, crash handling, screenshot limits). Mitigation: `BrowserDriver` interface + CDP session escape hatch; revisit only if evals show frame/crash failures clustering.
-- **Free-model structured output flakiness:** repair-reprompt + schema-constrained decode (Ollama `format`); the Zod boundary means bad output degrades to a retry, never a crash.
+- **Weaker-model structured output flakiness:** repair-reprompt + JSON-in-text fallback; the Zod boundary means bad output degrades to a retry, never a crash.
 - **Judge false approvals:** judge ≠ executor family; data-grounding spot-checks are deterministic code, not model opinion; periodically hand-label 30 trajectories and track judge agreement (browser-use: 87% is achievable).
 - **Live-site nondeterminism in evals:** multiple seeds + bootstrap error bars; prefer stable sites; treat single-run deltas as noise.

@@ -34,7 +34,7 @@ export interface OpenAiCompatibleOptions {
 
 /**
  * Provider for any OpenAI-compatible chat-completions endpoint:
- * Ollama, Groq, OpenRouter, Gemini's OpenAI endpoint, vLLM, etc.
+ * Groq, OpenRouter, Gemini's OpenAI endpoint, or any OpenAI-compatible API.
  */
 export class OpenAiCompatibleModel implements ChatModel {
   readonly id: string;

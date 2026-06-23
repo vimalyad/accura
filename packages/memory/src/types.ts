@@ -43,8 +43,7 @@ export interface RunRecord {
 
 /**
  * What the Agent needs from a memory backend. Implemented by the file-based
- * MemoryStore (single-user, local) and by @accura/store's PgStore
- * (multi-user, concurrent writers).
+ * MemoryStore (single-user, local).
  */
 export interface AgentMemory {
   querySkills(url: string): Promise<Skill[]>;
